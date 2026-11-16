@@ -1,7 +1,7 @@
 // Offline support: everything is cached on first visit, then served from the cache
 // (and refreshed in the background when a connection is available).
 // Bump CACHE when shipping a new version.
-const CACHE = 'slidebots-v2';
+const CACHE = 'slidebots-v3';
 const ASSETS = ['./', 'index.html', 'ricochet-robots.html', 'manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => {

@@ -112,27 +112,36 @@ dialog .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
   padding:10px;height:300px;overflow:auto;white-space:pre-wrap;margin:10px 0 0}
 #devDialog{width:600px}
 hr{border:none;border-top:1px solid var(--line);margin:12px 0}
+.zoombtn{display:none}
 @media (max-width:759px){
-  #app{flex-direction:column;align-items:center;gap:8px;
-    padding:max(8px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) max(14px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left))}
-  #side{width:100%;max-width:640px;gap:8px}
-  #side>.hdr{order:99}
-  .keys{display:none}
-  .touchhelp{display:block}
-  button{padding:10px;font-size:15px}
-  button kbd,.rbtn .num{display:none}
   html,body{overflow-x:hidden}
-  .rbtn{width:40px;height:40px;font-size:16px}
-  .robots{gap:7px}
-  .robotrow{flex-wrap:wrap;row-gap:10px}
-  .dpad{grid-template-columns:repeat(3,38px);grid-template-rows:repeat(2,38px)}
+  #app{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:stretch;
+    padding:max(6px,env(safe-area-inset-top)) 6px max(14px,env(safe-area-inset-bottom)) 6px}
+  #side{display:contents}
+  #side>*{grid-column:1/-1}
+  #side>.target-card{grid-column:1;grid-row:1;padding:5px 8px;gap:8px;min-width:0}
+  #side>.metrics{grid-column:2;grid-row:1;gap:4px}
+  #boardWrap{grid-column:1/-1;grid-row:2;margin:0 -6px;justify-self:center}
+  #board{border-radius:0;box-shadow:none}
+  .overlay{border-radius:0}
+  #side>.hdr{order:99;padding:0 4px}
+  #status{order:98;text-align:center}
+  .touchhelp{display:block;order:97}
+  .keys,.dpad,#tgtSub{display:none}
+  #tgtIcon{width:34px;height:34px;border-radius:8px}
+  #tgtName{font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .metric{padding:3px 9px;border-radius:10px;min-width:54px}
+  .metric .lbl{font-size:9px}
+  .metric .val{font-size:17px;line-height:1.25}
+  .card{padding:8px}
+  button{padding:11px 6px;font-size:15px}
+  button kbd,.rbtn .num{display:none}
+  .btn-grid{grid-template-columns:repeat(4,1fr)}
+  .rbtn{width:46px;height:46px;font-size:18px}
+  .robots{gap:10px}
+  .zoombtn{display:block;margin-left:auto;padding:11px 12px}
   input,select{font-size:16px !important}
-  .card{padding:9px 10px}
-  .target-card{padding:7px 10px}
-  #tgtIcon{width:40px;height:40px}
-  .metric{padding:5px 10px}
-  .metric .val{font-size:19px}
-  .result-card{min-width:0;width:88%;padding:14px 12px}
+  .result-card{min-width:0;width:86%;padding:14px 12px}
   .rating{font-size:28px}
   dialog{padding:14px}
 }
@@ -229,6 +238,7 @@ hr{border:none;border-top:1px solid var(--line);margin:12px 0}
         <button class="down" data-dir="2" title="Down (↓ / S)">↓</button>
         <button class="right" data-dir="1" title="Right (→ / D)">→</button>
       </div>
+      <button id="zoomBtn" class="zoombtn">Zoom in</button>
     </div>
 
     <div class="card">
@@ -241,7 +251,7 @@ hr{border:none;border-top:1px solid var(--line);margin:12px 0}
     </div>
 
     <div id="status"></div>
-    <div class="touchhelp">Tap a robot, then swipe anywhere on the board to slide it.</div>
+    <div class="touchhelp">Tap a robot, then swipe anywhere on the board to slide it. Pinch with two fingers to zoom.</div>
     <div class="keys">
       <kbd>1</kbd>–<kbd>5</kbd> select · <kbd>←↑→↓</kbd>/<kbd>WASD</kbd> move · <kbd>Z</kbd> undo · <kbd>R</kbd> reset ·
       <kbd>H</kbd> hint · <kbd>N</kbd> next · <kbd>Space</kbd> start/pause · <kbd>P</kbd> preview stops
@@ -774,7 +784,7 @@ globalThis.RRCore = (function () {
     board: null, deck: [], robots: [], start: [], targetIdx: -1, solution: null, code: '',
     phase: 'loading', history: [], selected: 0, hintLevel: 0, revealed: false, recorded: false,
     timer: { acc: 0, since: 0, running: false }, paused: false, think: null, replay: null, result: null,
-    gen: 0, anims: new Map(), trails: [], cell: 38, margin: 8, dpr: 1, raf: false,
+    gen: 0, anims: new Map(), trails: [], cell: 38, margin: 8, dpr: 1, raf: false, mobile: false, view: { k: 1, x: 0, y: 0 },
   };
   const cv = $('board');
   const COARSE = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
@@ -901,7 +911,7 @@ globalThis.RRCore = (function () {
   function beginRound(robots, t, sol) {
     S.start = robots.slice(); S.robots = robots.slice(); S.targetIdx = t; S.solution = sol;
     S.history = []; S.hintLevel = 0; S.revealed = false; S.recorded = false; S.result = null; S.replay = null;
-    S.anims.clear(); S.trails = []; S.paused = false;
+    S.anims.clear(); S.trails = []; S.paused = false; S.view = { k: 1, x: 0, y: 0 }; clampView();
     const tg = target(); S.selected = tg.color < 4 ? tg.color : 0;
     S.code = C.encodeCode(S.board.seed, S.start, t, S.board.gen); S.roundsOnBoard++;
     timerReset(); timerStart(); setLoading(null);
@@ -934,7 +944,7 @@ globalThis.RRCore = (function () {
     const from = S.robots[i], to = C.slide(S.board.stops, S.robots, i, d);
     if (to === from) { S.anims.set(i, { bump: d, t0: performance.now(), dur: 140 }); updateHUD(); render(); return; }
     S.history.push({ robot: i, from, to, dir: d });
-    S.robots[i] = to; animate(i, from, to);
+    S.robots[i] = to; animate(i, from, to); ensureVisible(to);
     if (isGoalMove(i, to)) { S.phase = 'solved'; timerStop(); const g = S.gen; setTimeout(() => { if (g === S.gen && S.phase === 'solved') finishRound(); }, 180); }
     updateHUD();
   }
@@ -1181,6 +1191,28 @@ globalThis.RRCore = (function () {
     if (tg) drawTargetSymbol(ctx, tg, 48, 50, 26, 1);
   }
 
+  // ---- zoom / pan (board is drawn through S.view; k = scale, x/y = offset in CSS px)
+  const boardPx = () => S.cell * 16 + S.margin * 2;
+  function clampView() {
+    const V = S.view, W = boardPx();
+    V.k = Math.max(1, Math.min(3, V.k));
+    V.x = Math.min(0, Math.max(W - W * V.k, V.x)); V.y = Math.min(0, Math.max(W - W * V.k, V.y));
+    $('zoomBtn').textContent = V.k > 1.02 ? 'Zoom out' : 'Zoom in';
+  }
+  function resetView() { S.view = { k: 1, x: 0, y: 0 }; clampView(); render(); }
+  function zoomAt(k, p) {
+    const W = boardPx(), px = S.margin + ((p & 15) + 0.5) * S.cell, py = S.margin + ((p >> 4) + 0.5) * S.cell;
+    S.view = { k, x: W / 2 - px * k, y: W / 2 - py * k }; clampView(); render();
+  }
+  function ensureVisible(p) {   // when zoomed in, pan just enough to keep a cell on screen
+    const V = S.view; if (V.k <= 1.02) return;
+    const W = boardPx(), pad = S.cell * V.k * 0.9;
+    const sx = V.x + (S.margin + ((p & 15) + 0.5) * S.cell) * V.k, sy = V.y + (S.margin + ((p >> 4) + 0.5) * S.cell) * V.k;
+    if (sx < pad) V.x += pad - sx; else if (sx > W - pad) V.x -= sx - (W - pad);
+    if (sy < pad) V.y += pad - sy; else if (sy > W - pad) V.y -= sy - (W - pad);
+    clampView();
+  }
+
   const ease = t => 1 - Math.pow(1 - t, 3);
   function render() { if (!S.raf) { S.raf = true; requestAnimationFrame(draw); } }
 
@@ -1191,7 +1223,9 @@ globalThis.RRCore = (function () {
     let again = false;
     ctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0);
     ctx.clearRect(0, 0, W, W);
-    ctx.fillStyle = '#e4dccb'; roundRect(ctx, 0, 0, W, W, 12); ctx.fill();
+    const V = S.view, small = cs < 30;   // phone-sized cells: draw robots and targets larger
+    ctx.setTransform(S.dpr * V.k, 0, 0, S.dpr * V.k, S.dpr * V.x, S.dpr * V.y);
+    ctx.fillStyle = '#e4dccb'; roundRect(ctx, 0, 0, W, W, S.mobile ? 0 : 12); ctx.fill();
     ctx.fillStyle = '#f7f3ea'; ctx.fillRect(M, M, cs * 16, cs * 16);
     if (!S.board) return;
     const B = S.board, cx = p => M + ((p & 15) + 0.5) * cs, cy = p => M + ((p >> 4) + 0.5) * cs;
@@ -1204,13 +1238,13 @@ globalThis.RRCore = (function () {
     const live = S.phase !== 'loading' && S.targetIdx >= 0;
     const tg = live ? target() : null;
     // targets
-    B.targets.forEach((t, k) => { if (k !== S.targetIdx || !live) drawTargetSymbol(ctx, t, cx(t.pos), cy(t.pos), cs * 0.19, 0.7); });
+    B.targets.forEach((t, k) => { if (k !== S.targetIdx || !live) drawTargetSymbol(ctx, t, cx(t.pos), cy(t.pos), cs * (small ? 0.25 : 0.19), small ? 0.8 : 0.7); });
     if (tg) {
       const x = M + (tg.pos & 15) * cs, y = M + (tg.pos >> 4) * cs;
       const col = tg.color === 4 ? '#7a5cd6' : ROBOTS[tg.color].fill;
       ctx.save(); ctx.globalAlpha = 0.22; ctx.fillStyle = col; ctx.fillRect(x, y, cs, cs); ctx.restore();
       ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = Math.max(2, cs * 0.07); roundRect(ctx, x + 3, y + 3, cs - 6, cs - 6, 5); ctx.stroke(); ctx.restore();
-      drawTargetSymbol(ctx, tg, cx(tg.pos), cy(tg.pos), cs * 0.33, 1);
+      drawTargetSymbol(ctx, tg, cx(tg.pos), cy(tg.pos), cs * (small ? 0.37 : 0.33), 1);
     }
     // centre block
     ctx.fillStyle = '#38342d'; roundRect(ctx, M + 7 * cs + 1, M + 7 * cs + 1, 2 * cs - 2, 2 * cs - 2, 6); ctx.fill();
@@ -1264,7 +1298,7 @@ globalThis.RRCore = (function () {
         else { const e = ease(k); fx = (an.from & 15) + ((an.to & 15) - (an.from & 15)) * e; fy = (an.from >> 4) + ((an.to >> 4) - (an.from >> 4)) * e; }
         if (k >= 1) S.anims.delete(i); else again = true;
       }
-      const x = M + (fx + 0.5) * cs, y = M + (fy + 0.5) * cs, r = cs * 0.36, R = ROBOTS[i];
+      const x = M + (fx + 0.5) * cs, y = M + (fy + 0.5) * cs, r = cs * (small ? 0.42 : 0.36), R = ROBOTS[i];
       ctx.save();
       if (i === S.selected && S.phase !== 'loading') {
         ctx.shadowColor = R.fill; ctx.shadowBlur = cs * 0.5;
@@ -1274,7 +1308,7 @@ globalThis.RRCore = (function () {
       ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fillStyle = R.fill; ctx.fill();
       ctx.shadowColor = 'transparent';
       ctx.lineWidth = Math.max(2, cs * 0.07); ctx.strokeStyle = R.dark; ctx.stroke();
-      ctx.fillStyle = R.text; ctx.font = '700 ' + Math.round(cs * 0.38) + 'px -apple-system,BlinkMacSystemFont,system-ui,sans-serif';
+      ctx.fillStyle = R.text; ctx.font = '700 ' + Math.round(cs * (small ? 0.48 : 0.38)) + 'px -apple-system,BlinkMacSystemFont,system-ui,sans-serif';
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(R.letter, x, y + cs * 0.02);
       ctx.restore();
     }
@@ -1284,10 +1318,12 @@ globalThis.RRCore = (function () {
   function layout() {
     const availH = window.innerHeight - 32, availW = window.innerWidth - 32 - 330 - 20;
     const mobile = window.innerWidth < 760;   // stacked layout: board takes the full width
-    const size = mobile ? Math.max(240, Math.min(640, window.innerWidth - 16, window.innerHeight - 16))
+    const size = mobile ? Math.max(240, Math.min(window.innerWidth, window.innerHeight - 16))   // edge to edge
                         : Math.max(320, Math.min(640, availH, availW));
-    S.cell = Math.floor((size - 10) / 16);
-    S.margin = Math.floor((size - S.cell * 16) / 2);
+    S.mobile = mobile;
+    if (mobile) { S.margin = 3; S.cell = (size - 6) / 16; }
+    else { S.cell = Math.floor((size - 10) / 16); S.margin = Math.floor((size - S.cell * 16) / 2); }
+    S.view = { k: 1, x: 0, y: 0 }; clampView();
     const px = S.cell * 16 + S.margin * 2;
     S.dpr = window.devicePixelRatio || 1;
     cv.style.width = cv.style.height = px + 'px';
@@ -1299,25 +1335,57 @@ globalThis.RRCore = (function () {
   // ---------------- input ----------------
   // Tap a robot to select it; swipe/drag anywhere on the board to slide the selected robot
   // (a swipe that starts on a robot selects it first). Tapping a cell in line with the robot also moves it.
-  let ptr = null;
-  function cellAt(e) {
+  let ptr = null, pinch = null; const pts = new Map();
+  function boardPt(e) {   // pointer position in unzoomed board pixels
     const rect = cv.getBoundingClientRect();
-    const x = Math.floor((e.clientX - rect.left - S.margin) / S.cell), y = Math.floor((e.clientY - rect.top - S.margin) / S.cell);
+    return { x: (e.clientX - rect.left - S.view.x) / S.view.k, y: (e.clientY - rect.top - S.view.y) / S.view.k };
+  }
+  function cellOf(pt) {
+    const x = Math.floor((pt.x - S.margin) / S.cell), y = Math.floor((pt.y - S.margin) / S.cell);
     return (x < 0 || x > 15 || y < 0 || y > 15) ? -1 : y * 16 + x;
   }
+  function pinchState() {
+    const rect = cv.getBoundingClientRect(), [a, b] = [...pts.values()];
+    return { d: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)), mx: (a.x + b.x) / 2 - rect.left, my: (a.y + b.y) / 2 - rect.top };
+  }
   cv.addEventListener('pointerdown', e => {
-    if (!S.board || S.phase === 'loading' || S.paused) return;
-    const cell = cellAt(e);
-    ptr = { x: e.clientX, y: e.clientY, cell, hitRobot: false };
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
     try { cv.setPointerCapture(e.pointerId); } catch (err) { /* not capturable */ }
-    const hit = cell >= 0 && S.phase !== 'replay' ? S.robots.indexOf(cell) : -1;
+    if (pts.size === 2) {   // second finger: start pinch-zoom / two-finger pan
+      ptr = null; const p = pinchState();
+      pinch = { d: p.d, bx: (p.mx - S.view.x) / S.view.k, by: (p.my - S.view.y) / S.view.k, k: S.view.k };
+      return;
+    }
+    if (pts.size > 2 || !S.board || S.phase === 'loading' || S.paused) return;
+    const pt = boardPt(e), cell = cellOf(pt);
+    ptr = { x: e.clientX, y: e.clientY, cell, hitRobot: false };
+    if (S.phase === 'replay') return;
+    let hit = cell >= 0 ? S.robots.indexOf(cell) : -1;
+    if (hit < 0 && S.cell * S.view.k < 30) {   // small cells: a touch near a robot counts as touching it
+      let best = 0.95;
+      S.robots.forEach((r, i) => {
+        const d = Math.hypot(pt.x - (S.margin + ((r & 15) + 0.5) * S.cell), pt.y - (S.margin + ((r >> 4) + 0.5) * S.cell)) / S.cell;
+        if (d < best) { best = d; hit = i; }
+      });
+    }
     if (hit >= 0) { S.selected = hit; ptr.hitRobot = true; updateHUD(); render(); }
   });
-  cv.addEventListener('pointercancel', () => { ptr = null; });
-  cv.addEventListener('pointerup', e => {
+  cv.addEventListener('pointermove', e => {
+    if (!pts.has(e.pointerId)) return;
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (!pinch || pts.size < 2) return;
+    const p = pinchState(), V = S.view;
+    V.k = Math.max(1, Math.min(3, pinch.k * p.d / pinch.d));
+    V.x = p.mx - pinch.bx * V.k; V.y = p.my - pinch.by * V.k;   // keep the pinched point under the fingers
+    clampView(); render();
+  });
+  const pointerEnd = (e, cancelled) => {
+    pts.delete(e.pointerId);
+    if (pinch) { if (pts.size === 0) { pinch = null; if (S.view.k < 1.08) resetView(); } ptr = null; return; }
     if (!ptr) return;
     const p = ptr, dx = e.clientX - p.x, dy = e.clientY - p.y; ptr = null;
-    if (Math.hypot(dx, dy) >= Math.max(14, S.cell * 0.5)) {
+    if (cancelled) return;
+    if (Math.hypot(dx, dy) >= Math.max(14, Math.min(S.cell * S.view.k * 0.5, 22))) {
       const d = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 1 : 3) : (dy > 0 ? 2 : 0);
       if (S.phase === 'replay') { if (d === 1) replayStep(1); else if (d === 3) replayStep(-1); }
       else move(S.selected, d);
@@ -1328,7 +1396,10 @@ globalThis.RRCore = (function () {
     const x = p.cell & 15, y = p.cell >> 4, rx = r & 15, ry = r >> 4;
     if (x === rx) move(S.selected, y < ry ? 0 : 2);
     else if (y === ry) move(S.selected, x > rx ? 1 : 3);
-  });
+  };
+  cv.addEventListener('pointerup', e => pointerEnd(e, false));
+  cv.addEventListener('pointercancel', e => pointerEnd(e, true));
+  $('zoomBtn').onclick = () => { if (S.view.k > 1.02) resetView(); else zoomAt(1.8, S.robots[S.selected] == null ? 136 : S.robots[S.selected]); };
 
   const KEY_DIR = { arrowup: 0, arrowright: 1, arrowdown: 2, arrowleft: 3, w: 0, d: 1, s: 2, a: 3 };
   document.addEventListener('keydown', e => {
