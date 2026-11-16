@@ -2,7 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Slide Bots">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f1efe9">
 <title>Slide Bots Trainer</title>
 <style>
 :root{
@@ -15,6 +20,10 @@
 html,body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);
   font:13.5px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif}
 button,input,select{font:inherit;color:inherit}
+html{-webkit-text-size-adjust:100%}
+body{overscroll-behavior:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+#board{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.touchhelp{display:none;font-size:12px;color:var(--muted);text-align:center}
 #app{display:flex;gap:20px;justify-content:center;align-items:flex-start;padding:16px}
 #boardWrap{position:relative;flex:none}
 #board{display:block;border-radius:12px;cursor:pointer;
@@ -103,6 +112,30 @@ dialog .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
   padding:10px;height:300px;overflow:auto;white-space:pre-wrap;margin:10px 0 0}
 #devDialog{width:600px}
 hr{border:none;border-top:1px solid var(--line);margin:12px 0}
+@media (max-width:759px){
+  #app{flex-direction:column;align-items:center;gap:8px;
+    padding:max(8px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) max(14px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left))}
+  #side{width:100%;max-width:640px;gap:8px}
+  #side>.hdr{order:99}
+  .keys{display:none}
+  .touchhelp{display:block}
+  button{padding:10px;font-size:15px}
+  button kbd,.rbtn .num{display:none}
+  html,body{overflow-x:hidden}
+  .rbtn{width:40px;height:40px;font-size:16px}
+  .robots{gap:7px}
+  .robotrow{flex-wrap:wrap;row-gap:10px}
+  .dpad{grid-template-columns:repeat(3,38px);grid-template-rows:repeat(2,38px)}
+  input,select{font-size:16px !important}
+  .card{padding:9px 10px}
+  .target-card{padding:7px 10px}
+  #tgtIcon{width:40px;height:40px}
+  .metric{padding:5px 10px}
+  .metric .val{font-size:19px}
+  .result-card{min-width:0;width:88%;padding:14px 12px}
+  .rating{font-size:28px}
+  dialog{padding:14px}
+}
 </style>
 </head>
 <body>
@@ -130,7 +163,7 @@ hr{border:none;border-top:1px solid var(--line);margin:12px 0}
   </main>
 
   <aside id="side">
-    <div class="row spread">
+    <div class="row spread hdr">
       <h1>Slide Bots<small>solo trainer</small></h1>
       <div class="row" style="gap:2px">
         <button class="ghost" id="statsBtn">Stats</button>
@@ -188,7 +221,7 @@ hr{border:none;border-top:1px solid var(--line);margin:12px 0}
       </div>
     </div>
 
-    <div class="card row">
+    <div class="card row robotrow">
       <div class="robots" id="robotBtns"></div>
       <div class="dpad">
         <button class="up" data-dir="0" title="Up (↑ / W)">↑</button>
@@ -208,6 +241,7 @@ hr{border:none;border-top:1px solid var(--line);margin:12px 0}
     </div>
 
     <div id="status"></div>
+    <div class="touchhelp">Tap a robot, then swipe anywhere on the board to slide it.</div>
     <div class="keys">
       <kbd>1</kbd>–<kbd>5</kbd> select · <kbd>←↑→↓</kbd>/<kbd>WASD</kbd> move · <kbd>Z</kbd> undo · <kbd>R</kbd> reset ·
       <kbd>H</kbd> hint · <kbd>N</kbd> next · <kbd>Space</kbd> start/pause · <kbd>P</kbd> preview stops
@@ -697,6 +731,7 @@ globalThis.RRCore = (function () {
     gen: 0, anims: new Map(), trails: [], cell: 38, margin: 8, dpr: 1, raf: false,
   };
   const cv = $('board');
+  const COARSE = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
   const nRobots = () => S.settings.silver ? 5 : 4;
   const target = () => S.board.targets[S.targetIdx];
   const saveSettings = () => store.set('slidebots.settings', S.settings);
@@ -829,7 +864,7 @@ globalThis.RRCore = (function () {
       S.think = { total: ms, remaining: ms, prediction: null, locked: false, spoiled: false };
       S.phase = 'think';
       $('predict').value = '';
-      setTimeout(() => { if (S.phase === 'think') $('predict').focus(); }, 30);
+      if (!COARSE) setTimeout(() => { if (S.phase === 'think') $('predict').focus(); }, 30);
     } else { S.think = null; S.phase = 'play'; }
     updateHUD(); render();
   }
@@ -847,7 +882,7 @@ globalThis.RRCore = (function () {
 
   function move(i, d) {
     if (S.paused || i >= S.robots.length) return;
-    if (S.phase === 'think') { flash('Thinking time — enter your prediction and press Enter (or Space) first.'); return; }
+    if (S.phase === 'think') { flash('Thinking time — enter your prediction and lock it in first.'); return; }
     if (S.phase !== 'play') return;
     S.selected = i;
     const from = S.robots[i], to = C.slide(S.board.stops, S.robots, i, d);
@@ -1201,7 +1236,9 @@ globalThis.RRCore = (function () {
 
   function layout() {
     const availH = window.innerHeight - 32, availW = window.innerWidth - 32 - 330 - 20;
-    const size = Math.max(320, Math.min(640, availH, availW));
+    const mobile = window.innerWidth < 760;   // stacked layout: board takes the full width
+    const size = mobile ? Math.max(240, Math.min(640, window.innerWidth - 16, window.innerHeight - 16))
+                        : Math.max(320, Math.min(640, availH, availW));
     S.cell = Math.floor((size - 10) / 16);
     S.margin = Math.floor((size - S.cell * 16) / 2);
     const px = S.cell * 16 + S.margin * 2;
@@ -1213,16 +1250,35 @@ globalThis.RRCore = (function () {
   }
 
   // ---------------- input ----------------
-  cv.addEventListener('click', e => {
-    if (!S.board || S.phase === 'loading' || S.paused) return;
+  // Tap a robot to select it; swipe/drag anywhere on the board to slide the selected robot
+  // (a swipe that starts on a robot selects it first). Tapping a cell in line with the robot also moves it.
+  let ptr = null;
+  function cellAt(e) {
     const rect = cv.getBoundingClientRect();
     const x = Math.floor((e.clientX - rect.left - S.margin) / S.cell), y = Math.floor((e.clientY - rect.top - S.margin) / S.cell);
-    if (x < 0 || x > 15 || y < 0 || y > 15) return;
-    const p = y * 16 + x, hit = S.robots.indexOf(p);
-    if (hit >= 0) { S.selected = hit; updateHUD(); render(); return; }
-    // clicking a cell in line with the selected robot moves it that way
+    return (x < 0 || x > 15 || y < 0 || y > 15) ? -1 : y * 16 + x;
+  }
+  cv.addEventListener('pointerdown', e => {
+    if (!S.board || S.phase === 'loading' || S.paused) return;
+    const cell = cellAt(e);
+    ptr = { x: e.clientX, y: e.clientY, cell, hitRobot: false };
+    try { cv.setPointerCapture(e.pointerId); } catch (err) { /* not capturable */ }
+    const hit = cell >= 0 && S.phase !== 'replay' ? S.robots.indexOf(cell) : -1;
+    if (hit >= 0) { S.selected = hit; ptr.hitRobot = true; updateHUD(); render(); }
+  });
+  cv.addEventListener('pointercancel', () => { ptr = null; });
+  cv.addEventListener('pointerup', e => {
+    if (!ptr) return;
+    const p = ptr, dx = e.clientX - p.x, dy = e.clientY - p.y; ptr = null;
+    if (Math.hypot(dx, dy) >= Math.max(14, S.cell * 0.5)) {
+      const d = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 1 : 3) : (dy > 0 ? 2 : 0);
+      if (S.phase === 'replay') { if (d === 1) replayStep(1); else if (d === 3) replayStep(-1); }
+      else move(S.selected, d);
+      return;
+    }
+    if (p.hitRobot || p.cell < 0 || S.phase === 'replay') return;
     const r = S.robots[S.selected]; if (r == null) return;
-    const rx = r & 15, ry = r >> 4;
+    const x = p.cell & 15, y = p.cell >> 4, rx = r & 15, ry = r >> 4;
     if (x === rx) move(S.selected, y < ry ? 0 : 2);
     else if (y === ry) move(S.selected, x > rx ? 1 : 3);
   });
@@ -1348,7 +1404,13 @@ globalThis.RRCore = (function () {
     }
   }, 100);
 
+  if (/^https?:$/.test(location.protocol)) {
+    const link = (rel, href) => { const l = document.createElement('link'); l.rel = rel; l.href = href; document.head.appendChild(l); };
+    link('manifest', 'manifest.webmanifest'); link('apple-touch-icon', 'icon-180.png'); link('icon', 'icon-192.png');
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
   window.addEventListener('resize', layout);
+  window.addEventListener('orientationchange', () => setTimeout(layout, 200));
   initWorker();
   layout();
   newBoard();
