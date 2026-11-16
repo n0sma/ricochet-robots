@@ -1,0 +1,1359 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Slide Bots Trainer</title>
+<style>
+:root{
+  --bg:#f1efe9; --panel:#ffffff; --ink:#1d1f23; --muted:#6b7079; --line:#e2ded5;
+  --accent:#2f5bd3; --accent-ink:#fff; --good:#1c8f4e; --warn:#b77400; --bad:#c23a3a;
+  --red:#e04848; --green:#2fa363; --blue:#3b74e0; --yellow:#f2c230; --silver:#a9b1ba;
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);
+  font:13.5px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif}
+button,input,select{font:inherit;color:inherit}
+#app{display:flex;gap:20px;justify-content:center;align-items:flex-start;padding:16px}
+#boardWrap{position:relative;flex:none}
+#board{display:block;border-radius:12px;cursor:pointer;
+  box-shadow:0 1px 2px rgba(0,0,0,.08),0 10px 30px rgba(40,30,10,.10)}
+#side{width:330px;flex:none;display:flex;flex-direction:column;gap:10px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:11px 12px}
+.row{display:flex;align-items:center;gap:8px}
+.spread{justify-content:space-between}
+h1{font-size:17px;margin:0;letter-spacing:-.01em}
+h1 small{font-weight:500;color:var(--muted);font-size:12px;margin-left:6px}
+.muted{color:var(--muted)}
+.small{font-size:12px}
+button{border:1px solid var(--line);background:#f7f6f2;border-radius:8px;padding:6px 10px;cursor:pointer;
+  transition:background .12s,border-color .12s}
+button:hover:not(:disabled){background:#efede6;border-color:#d4cfc3}
+button:disabled{opacity:.45;cursor:default}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+button.primary:hover:not(:disabled){background:#284fbd}
+button.ghost{background:transparent;border-color:transparent;padding:4px 7px;color:var(--muted)}
+button.ghost:hover{background:#ebe8e0;color:var(--ink)}
+kbd{font:11px ui-monospace,SFMono-Regular,Menlo,monospace;background:#efede7;border:1px solid #dcd7cc;
+  border-bottom-width:2px;border-radius:4px;padding:0 4px;color:#555}
+button kbd{margin-left:4px;background:rgba(255,255,255,.5)}
+.target-card{display:flex;gap:12px;align-items:center}
+#tgtIcon{width:48px;height:48px;flex:none;border-radius:10px;background:#38342d}
+#tgtName{font-weight:650;font-size:15px}
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.metric{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px 10px}
+.metric .lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.metric .val{font-size:22px;font-weight:650;font-variant-numeric:tabular-nums}
+.btn-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.btn-grid .wide{grid-column:1/-1}
+.chips{display:flex;flex-wrap:wrap;gap:4px;min-height:22px}
+.chip{display:inline-flex;align-items:center;gap:3px;border-radius:6px;padding:1px 6px;font-weight:650;font-size:12px;
+  background:color-mix(in srgb,var(--c) 18%,white);border:1px solid color-mix(in srgb,var(--c) 55%,white);color:#222}
+.chip.dim{opacity:.4}
+#hintBox{border-left:3px solid var(--accent)}
+.robots{display:flex;gap:6px;align-items:center}
+.rbtn{width:38px;height:38px;border-radius:50%;padding:0;font-weight:750;position:relative;
+  background:var(--c);border:2px solid color-mix(in srgb,var(--c) 55%,black);color:#fff}
+.rbtn.light{color:#3a2f00}
+.rbtn:hover:not(:disabled){background:var(--c);filter:brightness(1.06)}
+.rbtn.sel{box-shadow:0 0 0 3px #fff,0 0 0 5px var(--c)}
+.rbtn .num{position:absolute;bottom:-4px;right:-4px;font-size:9px;background:#fff;color:#555;border:1px solid #ccc;
+  border-radius:4px;padding:0 3px;line-height:12px}
+.dpad{display:grid;grid-template-columns:repeat(3,34px);grid-template-rows:repeat(2,30px);gap:4px;margin-left:auto}
+.dpad button{padding:0}
+.dpad .up{grid-column:2}
+.dpad .left{grid-column:1;grid-row:2}.dpad .down{grid-column:2;grid-row:2}.dpad .right{grid-column:3;grid-row:2}
+#thinkBar{height:6px;border-radius:3px;background:#ebe7de;overflow:hidden;margin:6px 0}
+#thinkBar div{height:100%;background:var(--warn);width:100%;transition:width .1s linear}
+#predict{width:70px;padding:5px 8px;border:1px solid var(--line);border-radius:8px}
+code#code{font:12px ui-monospace,SFMono-Regular,Menlo,monospace;background:#f3f1ec;border:1px solid var(--line);
+  border-radius:6px;padding:3px 6px;user-select:all;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#status{min-height:18px;font-size:12px;color:var(--muted)}
+#status.warn{color:var(--bad)}
+.keys{font-size:11.5px;color:var(--muted);line-height:1.7}
+.overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;border-radius:12px;pointer-events:none}
+.overlay[hidden]{display:none}
+.overlay>*{pointer-events:auto}
+#pauseOverlay{background:rgba(241,237,228,.94);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);pointer-events:auto;
+  font-size:18px;font-weight:600;color:#555;flex-direction:column;gap:6px}
+#loadingPill{position:absolute;top:14px;left:50%;transform:translateX(-50%);background:rgba(29,31,35,.86);color:#fff;
+  padding:6px 14px;border-radius:999px;font-size:12.5px;white-space:nowrap}
+.result-card{background:rgba(255,255,255,.97);border:1px solid var(--line);border-radius:14px;padding:18px 22px;min-width:300px;
+  text-align:center;box-shadow:0 18px 50px rgba(0,0,0,.18)}
+.rating{font-size:34px;font-weight:800;letter-spacing:-.02em}
+.rating.good{color:var(--good)}.rating.ok{color:var(--warn)}.rating.bad{color:var(--bad)}
+.res-grid{display:flex;justify-content:center;gap:18px;margin:8px 0 6px}
+.res-grid div{display:flex;flex-direction:column}
+.res-grid b{font-size:22px;font-variant-numeric:tabular-nums}
+.res-grid span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.res-actions{display:flex;gap:8px;justify-content:center;margin-top:12px}
+dialog{border:1px solid var(--line);border-radius:14px;padding:18px 20px;width:420px;max-width:92vw;
+  box-shadow:0 20px 60px rgba(0,0,0,.25);color:var(--ink)}
+dialog::backdrop{background:rgba(20,18,14,.35)}
+dialog h2{margin:0 0 12px;font-size:16px}
+dialog label{display:flex;align-items:center;gap:8px;margin:7px 0}
+dialog .field{display:flex;justify-content:space-between;align-items:center;margin:9px 0;gap:10px}
+dialog select,dialog input[type=number],dialog input[type=text]{padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:#fff}
+dialog .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+.stats-table{width:100%;border-collapse:collapse}
+.stats-table td{padding:5px 0;border-bottom:1px solid #f0ede6}
+.stats-table td:last-child{text-align:right;font-weight:650;font-variant-numeric:tabular-nums}
+#testOut{background:#15171a;color:#d7dde4;font:11.5px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;border-radius:8px;
+  padding:10px;height:300px;overflow:auto;white-space:pre-wrap;margin:10px 0 0}
+#devDialog{width:600px}
+hr{border:none;border-top:1px solid var(--line);margin:12px 0}
+</style>
+</head>
+<body>
+<div id="app">
+  <main id="boardWrap">
+    <canvas id="board" width="640" height="640" aria-label="Game board"></canvas>
+    <div id="loadingPill" hidden>Drawing a puzzle…</div>
+    <div id="pauseOverlay" class="overlay" hidden><div>Paused</div><div class="small muted">Press <kbd>Space</kbd> to resume</div></div>
+    <div id="result" class="overlay" hidden>
+      <div class="result-card">
+        <div id="resRating" class="rating">Optimal!</div>
+        <div class="res-grid">
+          <div><b id="resMine">0</b><span>Your moves</span></div>
+          <div><b id="resOpt">0</b><span>Optimal</span></div>
+          <div><b id="resTime">0:00</b><span>Time</span></div>
+        </div>
+        <div id="resThink" class="small"></div>
+        <div id="resNote" class="small muted"></div>
+        <div class="res-actions">
+          <button id="resSolution">Show solution</button>
+          <button id="resNext" class="primary">Next round <kbd>N</kbd></button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <aside id="side">
+    <div class="row spread">
+      <h1>Slide Bots<small>solo trainer</small></h1>
+      <div class="row" style="gap:2px">
+        <button class="ghost" id="statsBtn">Stats</button>
+        <button class="ghost" id="settingsBtn">Settings</button>
+        <button class="ghost" id="devBtn" title="Developer tools / self-tests">Dev</button>
+      </div>
+    </div>
+
+    <div class="card target-card">
+      <canvas id="tgtIcon" width="96" height="96"></canvas>
+      <div style="flex:1;min-width:0">
+        <div id="tgtName">—</div>
+        <div id="tgtSub" class="small muted">—</div>
+      </div>
+    </div>
+
+    <div class="metrics">
+      <div class="metric"><div class="lbl">Moves</div><div class="val" id="mMoves">0</div></div>
+      <div class="metric"><div class="lbl">Time</div><div class="val" id="mTime">0:00</div></div>
+      <div class="metric"><div class="lbl">Optimal</div><div class="val" id="mOpt">?</div></div>
+    </div>
+
+    <div class="card" id="thinkCard" hidden>
+      <div class="row spread"><b>Think first</b><span id="thinkClock" class="muted" style="font-variant-numeric:tabular-nums">1:00</span></div>
+      <div id="thinkBar"><div></div></div>
+      <div id="thinkInputRow" class="row">
+        <span class="small">Predicted moves</span>
+        <input id="predict" type="number" min="1" max="40" inputmode="numeric">
+        <button id="lockBtn" class="primary">Lock in</button>
+      </div>
+      <div id="thinkLocked" class="small" hidden></div>
+    </div>
+
+    <div class="card">
+      <div class="btn-grid">
+        <button id="undoBtn">Undo <kbd>Z</kbd></button>
+        <button id="resetBtn">Reset <kbd>R</kbd></button>
+        <button id="hintBtn">Hint <kbd>H</kbd></button>
+        <button id="solBtn">Solution</button>
+        <button id="nextBtn" class="primary wide">Next round <kbd>N</kbd></button>
+      </div>
+      <div style="margin-top:8px" class="small muted">Your moves</div>
+      <div id="myMoves" class="chips"></div>
+    </div>
+
+    <div class="card" id="hintBox" hidden></div>
+
+    <div class="card" id="replayBar" hidden>
+      <div class="row spread"><b>Optimal solution</b><span id="replayStep" class="muted small">Step 0 / 0</span></div>
+      <div id="replayMoves" class="chips" style="margin:6px 0"></div>
+      <div class="row">
+        <button id="prevBtn">◀ Prev</button>
+        <button id="stepBtn">Next ▶</button>
+        <button id="doneBtn" class="primary" style="margin-left:auto">Try it yourself</button>
+      </div>
+    </div>
+
+    <div class="card row">
+      <div class="robots" id="robotBtns"></div>
+      <div class="dpad">
+        <button class="up" data-dir="0" title="Up (↑ / W)">↑</button>
+        <button class="left" data-dir="3" title="Left (← / A)">←</button>
+        <button class="down" data-dir="2" title="Down (↓ / S)">↓</button>
+        <button class="right" data-dir="1" title="Right (→ / D)">→</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <span class="small muted">Puzzle</span>
+        <code id="code" title="Seed code for this board + round">—</code>
+        <button id="copyBtn" class="ghost">Copy</button>
+        <button id="loadBtn" class="ghost">Load…</button>
+      </div>
+    </div>
+
+    <div id="status"></div>
+    <div class="keys">
+      <kbd>1</kbd>–<kbd>5</kbd> select · <kbd>←↑→↓</kbd>/<kbd>WASD</kbd> move · <kbd>Z</kbd> undo · <kbd>R</kbd> reset ·
+      <kbd>H</kbd> hint · <kbd>N</kbd> next · <kbd>Space</kbd> start/pause · <kbd>P</kbd> preview stops
+    </div>
+  </aside>
+</div>
+
+<dialog id="settingsDialog">
+  <h2>Settings</h2>
+  <div class="field"><span>Difficulty</span>
+    <select id="setDifficulty">
+      <option value="any">Any</option>
+      <option value="easy">Easy (2–4 moves)</option>
+      <option value="medium">Medium (5–7 moves)</option>
+      <option value="hard">Hard (8+ moves)</option>
+    </select>
+  </div>
+  <div class="field"><span>Between rounds</span>
+    <select id="setPersist">
+      <option value="1">Robots stay where they ended</option>
+      <option value="0">Re-randomize robots</option>
+    </select>
+  </div>
+  <label><input type="checkbox" id="setSilver"> Fifth (silver) robot</label>
+  <label><input type="checkbox" id="setPreview"> Preview stops for the selected robot</label>
+  <label><input type="checkbox" id="setThink"> “Think first” mode, countdown
+    <input type="number" id="setThinkSecs" min="5" max="600" style="width:70px"> seconds</label>
+  <hr>
+  <div class="row spread"><span class="small muted">Board seed: <code id="boardSeedLbl"></code></span>
+    <button id="newBoardBtn">New board</button></div>
+  <div class="small muted" style="margin-top:6px">Difficulty, mode and think settings apply from the next round. Toggling silver starts a new round.</div>
+  <div class="actions"><button id="settingsClose" class="primary">Done</button></div>
+</dialog>
+
+<dialog id="statsDialog">
+  <h2>Stats</h2>
+  <table class="stats-table" id="statsTable"></table>
+  <div class="actions">
+    <button id="statsReset">Reset stats</button>
+    <button id="statsClose" class="primary">Close</button>
+  </div>
+</dialog>
+
+<dialog id="loadDialog">
+  <h2>Load a puzzle</h2>
+  <div class="small muted">Paste a puzzle code (board seed + robots + target), e.g. <code>k3f9qz-1a2b3c4d7</code></div>
+  <div class="row" style="margin-top:10px"><input type="text" id="loadInput" style="flex:1" spellcheck="false" autocomplete="off"></div>
+  <div id="loadErr" class="small" style="color:var(--bad);min-height:18px;margin-top:4px"></div>
+  <div class="actions"><button id="loadCancel">Cancel</button><button id="loadGo" class="primary">Load</button></div>
+</dialog>
+
+<dialog id="devDialog">
+  <h2>Developer</h2>
+  <div class="row">
+    <button id="runTestsBtn" class="primary">Run tests</button>
+    <span class="small muted">Board structure, movement fuzzing, 100 solved rounds with replay verification, optimality cross-check, seed codes. Runs in a worker. Also available from the console: <code>RR.runTests()</code></span>
+  </div>
+  <pre id="testOut">Press “Run tests”.</pre>
+  <div class="actions"><button id="devClose" class="primary">Close</button></div>
+</dialog>
+
+<!-- ===================== Core engine (also loaded into the Web Worker) ===================== -->
+<script id="core">
+globalThis.RRCore = (function () {
+  'use strict';
+  // Directions: 0=N 1=E 2=S 3=W. Wall bits per cell.
+  const BIT = [1, 2, 4, 8];
+  const DX = [0, 1, 0, -1], DY = [-1, 0, 1, 0];
+  const ARROWS = ['↑', '→', '↓', '←'];
+  const CENTER = [119, 120, 135, 136]; // (7,7) (8,7) (7,8) (8,8)
+  const isCenter = p => p === 119 || p === 120 || p === 135 || p === 136;
+  const now = () => (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      let t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  function shuffle(arr, rng) {
+    for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); const t = arr[i]; arr[i] = arr[j]; arr[j] = t; }
+    return arr;
+  }
+  function neighbor(p, d) {
+    const x = (p & 15) + DX[d], y = (p >> 4) + DY[d];
+    return (x < 0 || x > 15 || y < 0 || y > 15) ? -1 : y * 16 + x;
+  }
+
+  // ---- Quadrant designs (original layouts). Canonical orientation = top-left quadrant:
+  // outer edges are top (y=0) and left (x=0); the centre block touches cell (7,7).
+  // L: [x, y, corner] — first four get the four colours, the fifth is the rainbow spot
+  //    (used only in the one quadrant chosen to host the rainbow target).
+  // stubs: [x, y, side] single walls sticking in from the outer edge.
+  const DIR = { N: 0, E: 1, S: 2, W: 3 };
+  const CORNER = { NE: [0, 1], SE: [2, 1], SW: [2, 3], NW: [0, 3] };
+  const QUADS = [
+    { L: [[2, 1, 'NE'], [5, 2, 'SW'], [1, 4, 'SE'], [4, 5, 'NW'], [6, 4, 'SE']], stubs: [[4, 0, 'E'], [0, 2, 'S']] },
+    { L: [[3, 1, 'SE'], [1, 3, 'NE'], [6, 2, 'NW'], [4, 4, 'SW'], [2, 6, 'NE']], stubs: [[5, 0, 'E'], [0, 5, 'S']] },
+    { L: [[1, 1, 'SE'], [4, 2, 'NE'], [2, 4, 'NW'], [6, 5, 'SW'], [4, 6, 'SE']], stubs: [[2, 0, 'E'], [0, 6, 'S']] },
+    { L: [[2, 2, 'NW'], [5, 1, 'SW'], [6, 4, 'NE'], [1, 5, 'SE'], [4, 6, 'NW']], stubs: [[3, 0, 'E'], [0, 3, 'S']] },
+  ];
+  // Rotate a canonical (top-left) coordinate q quarter-turns clockwise around the board centre.
+  function rotXY(x, y, q) { for (let i = 0; i < q; i++) { const nx = 15 - y; y = x; x = nx; } return [x, y]; }
+
+  function buildBoard(seed) {
+    seed = seed >>> 0;
+    const rng = mulberry32(seed);
+    const walls = new Uint8Array(256);
+    const setWall = (p, d) => { walls[p] |= BIT[d]; const q = neighbor(p, d); if (q >= 0) walls[q] |= BIT[(d + 2) & 3]; };
+    for (let i = 0; i < 16; i++) { setWall(i, 0); setWall(240 + i, 2); setWall(i * 16, 3); setWall(i * 16 + 15, 1); }
+    const order = shuffle([0, 1, 2, 3], rng);       // which design sits in which quadrant
+    const rainbowQ = Math.floor(rng() * 4);
+    const targets = [];
+    for (let q = 0; q < 4; q++) {                     // q: 0=TL 1=TR 2=BR 3=BL (q clockwise turns)
+      const design = QUADS[order[q]];
+      const colors = shuffle([0, 1, 2, 3], rng);
+      const place = (x, y, corner, color, shape) => {
+        const [rx, ry] = rotXY(x, y, q); const p = ry * 16 + rx;
+        for (const d of CORNER[corner]) setWall(p, (d + q) & 3);
+        targets.push({ pos: p, color, shape });
+      };
+      for (let k = 0; k < 4; k++) { const [x, y, c] = design.L[k]; place(x, y, c, colors[k], (q + colors[k]) & 3); }
+      if (q === rainbowQ) { const [x, y, c] = design.L[4]; place(x, y, c, 4, 4); }
+      for (const [x, y, s] of design.stubs) { const [rx, ry] = rotXY(x, y, q); setWall(ry * 16 + rx, (DIR[s] + q) & 3); }
+    }
+    for (const p of CENTER) for (let d = 0; d < 4; d++) setWall(p, d);
+    targets.sort((a, b) => a.color - b.color || a.shape - b.shape);
+    return { seed, walls, targets, stops: computeStops(walls), order, rainbowQ };
+  }
+
+  // Wall-only slide stops: stops[cell*4+dir]
+  function computeStops(walls) {
+    const st = new Uint8Array(1024);
+    for (let p = 0; p < 256; p++) for (let d = 0; d < 4; d++) {
+      let c = p;
+      while (!(walls[c] & BIT[d])) { const n = neighbor(c, d); if (n < 0) break; c = n; }
+      st[p * 4 + d] = c;
+    }
+    return st;
+  }
+
+  // Fast slide: wall stop from table, then clipped by any robot in the way.
+  function slide(stops, robots, i, d) {
+    const p = robots[i]; const s = stops[p * 4 + d];
+    if (s === p) return p;
+    const x = p & 15, y = p >> 4; let sx = s & 15, sy = s >> 4;
+    for (let j = 0; j < robots.length; j++) {
+      if (j === i) continue;
+      const r = robots[j], rx = r & 15, ry = r >> 4;
+      if (d === 0) { if (rx === x && ry < y && ry >= sy) sy = ry + 1; }
+      else if (d === 1) { if (ry === y && rx > x && rx <= sx) sx = rx - 1; }
+      else if (d === 2) { if (rx === x && ry > y && ry <= sy) sy = ry - 1; }
+      else { if (ry === y && rx < x && rx >= sx) sx = rx + 1; }
+    }
+    return sy * 16 + sx;
+  }
+
+  // Reference slide, one cell at a time (independent implementation used by tests).
+  function slideStep(walls, robots, i, d) {
+    let p = robots[i];
+    for (;;) {
+      const q = neighbor(p, d);
+      if (q < 0 || (walls[p] & BIT[d]) || (walls[q] & BIT[(d + 2) & 3])) return p;
+      for (let j = 0; j < robots.length; j++) if (j !== i && robots[j] === q) return p;
+      p = q;
+    }
+  }
+
+  function sortFrom(a, s) {
+    for (let i = s + 1; i < a.length; i++) { const v = a[i]; let j = i - 1; while (j >= s && a[j] > v) { a[j + 1] = a[j]; j--; } a[j + 1] = v; }
+  }
+
+  // BFS solver over robot-position states.
+  // targetRobot = robot index, or -1 for "any robot" (rainbow target).
+  // Helper robots are interchangeable as blockers, so their positions are sorted to shrink the state space.
+  function solve(walls, robotsIn, targetPos, targetRobot, opts) {
+    opts = opts || {};
+    const maxDepth = opts.maxDepth == null ? 15 : opts.maxDepth;
+    const timeMs = opts.timeMs == null ? 3000 : opts.timeMs;
+    const maxStates = opts.maxStates || 20000000;
+    const t0 = now();
+    const stops = opts.stops || computeStops(walls);
+    const n = robotsIn.length;
+    if (n < 1 || n > 5) throw new Error('solver supports 1–5 robots');
+    const any = targetRobot < 0;
+    if (any ? robotsIn.indexOf(targetPos) >= 0 : robotsIn[targetRobot] === targetPos)
+      return { ok: false, reason: 'already', states: 0, ms: 0 };
+    const s0 = any ? 0 : 1;
+    const start = new Uint8Array(n);
+    if (any) for (let j = 0; j < n; j++) start[j] = robotsIn[j];
+    else { start[0] = robotsIn[targetRobot]; let k = 1; for (let j = 0; j < n; j++) if (j !== targetRobot) start[k++] = robotsIn[j]; }
+    sortFrom(start, s0);
+
+    // open-addressing hash set of packed states (key = hi*2^32 + lo, up to 40 bits)
+    let hcap = 1 << 16, hmask = hcap - 1, hkeys = new Float64Array(hcap).fill(-1), hcount = 0;
+    const hashOf = (lo, hi) => { let h = Math.imul((lo | 0) ^ Math.imul(hi + 1, 0x9E3779B1), 0x85EBCA6B); h ^= h >>> 13; h = Math.imul(h, 0xC2B2AE35); h ^= h >>> 16; return h; };
+    function growHash() {
+      const old = hkeys; hcap <<= 1; hmask = hcap - 1; hkeys = new Float64Array(hcap).fill(-1);
+      for (let i = 0; i < old.length; i++) {
+        const key = old[i]; if (key === -1) continue;
+        const hi = Math.floor(key / 4294967296), lo = key - hi * 4294967296;
+        let h = hashOf(lo, hi) & hmask; while (hkeys[h] !== -1) h = (h + 1) & hmask; hkeys[h] = key;
+      }
+    }
+    function insertState(a) {
+      let lo = 0; const s = n > 4 ? n - 4 : 0;
+      for (let j = s; j < n; j++) lo = lo * 256 + a[j];
+      const hi = n > 4 ? a[0] : 0; const key = hi * 4294967296 + lo;
+      let h = hashOf(lo, hi) & hmask;
+      for (;;) { const k = hkeys[h]; if (k === -1) break; if (k === key) return false; h = (h + 1) & hmask; }
+      hkeys[h] = key; hcount++;
+      if (hcount * 2 > hcap) growHash();
+      return true;
+    }
+    // BFS queue (also the parent tree)
+    let qcap = 1 << 15, qlen = 0;
+    let qpos = new Uint8Array(qcap * n), qpar = new Int32Array(qcap), qmove = new Uint16Array(qcap), qdep = new Uint8Array(qcap);
+    function push(a, par, mv, dep) {
+      if (qlen === qcap) {
+        qcap *= 2;
+        const a1 = new Uint8Array(qcap * n); a1.set(qpos); qpos = a1;
+        const a2 = new Int32Array(qcap); a2.set(qpar); qpar = a2;
+        const a3 = new Uint16Array(qcap); a3.set(qmove); qmove = a3;
+        const a4 = new Uint8Array(qcap); a4.set(qdep); qdep = a4;
+      }
+      qpos.set(a, qlen * n); qpar[qlen] = par; qmove[qlen] = mv; qdep[qlen] = dep; qlen++;
+    }
+    function finish(h, fromPos, d) {
+      const seq = [[fromPos, d]]; let k = h;
+      while (qpar[k] >= 0) { const m = qmove[k]; seq.push([m >> 2, m & 3]); k = qpar[k]; }
+      seq.reverse();
+      const rob = Array.from(robotsIn); const moves = [];
+      for (const [fp, dd] of seq) {
+        const j = rob.indexOf(fp); if (j < 0) throw new Error('solution reconstruction failed');
+        rob[j] = slide(stops, rob, j, dd); moves.push({ robot: j, dir: dd });
+      }
+      const last = moves[moves.length - 1];
+      if (rob[last.robot] !== targetPos || (!any && last.robot !== targetRobot)) throw new Error('solution verification failed');
+      return { ok: true, count: moves.length, moves, states: qlen, ms: now() - t0 };
+    }
+
+    insertState(start); push(start, -1, 0, 0);
+    const cur = new Uint8Array(n), child = new Uint8Array(n);
+    let head = 0;
+    while (head < qlen) {
+      if ((head & 2047) === 0) {
+        if (now() - t0 > timeMs) return { ok: false, reason: 'timeout', states: qlen, ms: now() - t0 };
+        if (qlen > maxStates) return { ok: false, reason: 'limit', states: qlen, ms: now() - t0 };
+      }
+      const dep = qdep[head];
+      if (dep >= maxDepth) return { ok: false, reason: 'depth', states: qlen, ms: now() - t0 };
+      const base = head * n;
+      for (let j = 0; j < n; j++) cur[j] = qpos[base + j];
+      for (let i = 0; i < n; i++) {
+        for (let d = 0; d < 4; d++) {
+          const np = slide(stops, cur, i, d);
+          if (np === cur[i]) continue;
+          if (np === targetPos && (any || i === 0)) return finish(head, cur[i], d);
+          child.set(cur); child[i] = np;
+          if (i >= s0) sortFrom(child, s0);
+          if (insertState(child)) push(child, head, (cur[i] << 2) | d, dep + 1);
+        }
+      }
+      head++;
+    }
+    return { ok: false, reason: 'exhausted', states: qlen, ms: now() - t0 };
+  }
+
+  // Plain full-state BFS (no symmetry reduction, step-by-step movement) for cross-checking optimality.
+  function naiveSolve(walls, robots, targetPos, targetRobot, maxDepth) {
+    const any = targetRobot < 0, n = robots.length;
+    let frontier = [Array.from(robots)]; const seen = new Set([robots.join(',')]);
+    for (let depth = 1; depth <= maxDepth; depth++) {
+      const next = [];
+      for (const st of frontier) for (let i = 0; i < n; i++) for (let d = 0; d < 4; d++) {
+        const np = slideStep(walls, st, i, d); if (np === st[i]) continue;
+        if (np === targetPos && (any || i === targetRobot)) return depth;
+        const c = st.slice(); c[i] = np; const k = c.join(',');
+        if (!seen.has(k)) { seen.add(k); next.push(c); }
+      }
+      frontier = next;
+    }
+    return -1;
+  }
+
+  function randomRobots(board, n, rng) {
+    const bad = new Set(CENTER); for (const t of board.targets) bad.add(t.pos);
+    const out = [];
+    while (out.length < n) { const p = Math.floor(rng() * 256); if (!bad.has(p) && out.indexOf(p) < 0) out.push(p); }
+    return out;
+  }
+
+  // Puzzle code: <board seed base36>-<robot cells hex, 2 chars each><target index base36>
+  function encodeCode(seed, robots, t) {
+    return (seed >>> 0).toString(36) + '-' + robots.map(p => p.toString(16).padStart(2, '0')).join('') + t.toString(36);
+  }
+  function decodeCode(str) {
+    const s = String(str || '').trim().toLowerCase();
+    const m = /^([0-9a-z]{1,7})-((?:[0-9a-f]{2}){4,5})([0-9a-g])$/.exec(s);
+    if (!m) return null;
+    const seed = parseInt(m[1], 36);
+    if (!(seed >= 0 && seed <= 0xffffffff)) return null;
+    const robots = []; for (let i = 0; i < m[2].length; i += 2) robots.push(parseInt(m[2].slice(i, i + 2), 16));
+    const target = parseInt(m[3], 36);
+    if (!(target >= 0 && target <= 16)) return null;
+    if (new Set(robots).size !== robots.length || robots.some(isCenter)) return null;
+    return { seed, robots, target };
+  }
+
+  // ---------------- self-tests ----------------
+  function runTests(log) {
+    log = log || function () {};
+    const T0 = now(); let pass = 0, fail = 0; const failures = [];
+    let secFail = 0;
+    const check = (cond, msg) => { if (cond) pass++; else { fail++; secFail++; if (failures.length < 40) { failures.push(msg); log('   ✗ ' + msg); } } };
+    const section = (name, fn) => { secFail = 0; const t = now(); log('▶ ' + name); fn(); log((secFail ? '   FAILED (' + secFail + ')' : '   ok') + '  [' + Math.round(now() - t) + ' ms]'); };
+    const rng = mulberry32(20261116);
+    const rseed = () => (rng() * 4294967296) >>> 0;
+
+    section('Board structure: 300 random boards (walls, centre, targets, L-corners)', () => {
+      for (let k = 0; k < 300; k++) {
+        const seed = rseed(); const b = buildBoard(seed); const w = b.walls;
+        let sym = true, outer = true;
+        for (let p = 0; p < 256; p++) for (let d = 0; d < 4; d++) {
+          const q = neighbor(p, d);
+          if (q < 0) { if (!(w[p] & BIT[d])) outer = false; }
+          else if (!!(w[p] & BIT[d]) !== !!(w[q] & BIT[(d + 2) & 3])) sym = false;
+        }
+        check(sym, 'walls not symmetric, seed ' + seed);
+        check(outer, 'outer border open, seed ' + seed);
+        check(CENTER.every(p => (w[p] & 15) === 15), 'centre not enclosed, seed ' + seed);
+        check(b.targets.length === 17, '17 targets, seed ' + seed);
+        const counts = [0, 0, 0, 0, 0]; const combos = new Set();
+        for (const t of b.targets) { counts[t.color]++; combos.add(t.color * 8 + t.shape); }
+        check(counts.join() === '4,4,4,4,1', 'target colour counts ' + counts + ', seed ' + seed);
+        check(combos.size === 17, 'duplicate colour/shape, seed ' + seed);
+        for (const t of b.targets) {
+          const tw = w[t.pos]; let L = false;
+          for (let d = 0; d < 4; d++) if ((tw & BIT[d]) && (tw & BIT[(d + 1) & 3])) L = true;
+          check(L, 'target not in an L-corner at ' + t.pos + ', seed ' + seed);
+          check(!isCenter(t.pos), 'target in centre');
+        }
+        for (let i = 0; i < 17; i++) for (let j = i + 1; j < 17; j++) {
+          const a = b.targets[i].pos, c = b.targets[j].pos;
+          check(Math.max(Math.abs((a & 15) - (c & 15)), Math.abs((a >> 4) - (c >> 4))) >= 2, 'L-corners touch: ' + a + '/' + c + ', seed ' + seed);
+        }
+        const b2 = buildBoard(seed);
+        check(b2.walls.every((v, i) => v === w[i]) && b2.targets.every((t, i) => t.pos === b.targets[i].pos), 'board not deterministic for seed ' + seed);
+      }
+    });
+
+    section('Movement fuzz: 80 boards × 400 random moves (walls, robots, centre)', () => {
+      for (let k = 0; k < 80; k++) {
+        const b = buildBoard(rseed()); const n = k % 4 === 0 ? 5 : 4;
+        const robots = randomRobots(b, n, rng);
+        for (let m = 0; m < 400; m++) {
+          const i = Math.floor(rng() * n), d = Math.floor(rng() * 4);
+          const from = robots[i];
+          const fast = slide(b.stops, robots, i, d), ref = slideStep(b.walls, robots, i, d);
+          check(fast === ref, 'fast slide ' + fast + ' != reference ' + ref);
+          // walk the path and check every step is legal
+          let p = from, steps = 0, legal = true;
+          while (p !== fast && steps < 16) {
+            const q = neighbor(p, d);
+            if (q < 0 || (b.walls[p] & BIT[d]) || (b.walls[q] & BIT[(d + 2) & 3])) { legal = false; break; }
+            if (robots.some((r, j) => j !== i && r === q)) { legal = false; break; }
+            if (isCenter(q)) { legal = false; break; }
+            p = q; steps++;
+          }
+          check(legal && p === fast, 'robot passed through a wall/robot/centre');
+          // and it really had to stop there
+          const q = neighbor(fast, d);
+          const blocked = q < 0 || (b.walls[fast] & BIT[d]) || robots.some((r, j) => j !== i && r === q);
+          check(blocked, 'robot stopped early at ' + fast);
+          robots[i] = fast;
+          check(!isCenter(fast), 'robot entered the centre');
+          check(new Set(robots).size === n, 'two robots share a cell');
+        }
+      }
+    });
+
+    let stats = null;
+    section('100 random rounds: generate, solve (≤15 moves, 3 s), verify by replay, cross-check optimality', () => {
+      let solved = 0, redraws = 0, attempts = 0, totalMs = 0, maxMs = 0, crossShort = 0, crossLong = 0;
+      const dist = {};
+      while (solved < 100 && attempts < 600) {
+        attempts++;
+        const b = buildBoard(rseed()); const n = attempts % 7 === 0 ? 5 : 4;
+        const robots = randomRobots(b, n, rng);
+        const tg = b.targets[Math.floor(rng() * 17)]; const tr = tg.color < 4 ? tg.color : -1;
+        let res;
+        try { res = solve(b.walls, robots, tg.pos, tr, { stops: b.stops, maxDepth: 15, timeMs: 3000 }); }
+        catch (e) { check(false, 'solver threw: ' + e.message); continue; }
+        if (!res.ok) { redraws++; check(['timeout', 'exhausted', 'depth', 'limit', 'already'].indexOf(res.reason) >= 0, 'odd reason ' + res.reason); continue; }
+        solved++; totalMs += res.ms; maxMs = Math.max(maxMs, res.ms); dist[res.count] = (dist[res.count] || 0) + 1;
+        check(res.count === res.moves.length && res.count >= 1 && res.count <= 15, 'bad move count');
+        const r = robots.slice(); let early = false, noop = false, centre = false;
+        res.moves.forEach((mv, k) => {
+          const before = r[mv.robot]; r[mv.robot] = slideStep(b.walls, r, mv.robot, mv.dir);
+          if (r[mv.robot] === before) noop = true;
+          if (isCenter(r[mv.robot])) centre = true;
+          const on = tr < 0 ? r.indexOf(tg.pos) >= 0 : r[tr] === tg.pos;
+          if (on && k < res.moves.length - 1) early = true;
+        });
+        check(!noop, 'solution contains a no-op move');
+        check(!centre, 'solution enters the centre');
+        check(tr < 0 ? r.indexOf(tg.pos) >= 0 : r[tr] === tg.pos, 'replayed solution does not land on the target');
+        check(!early, 'target reached before the last move (not optimal)');
+        if (res.count <= 4 && crossShort < 30) { crossShort++; check(naiveSolve(b.walls, robots, tg.pos, tr, res.count) === res.count, 'naive BFS disagrees on optimum ' + res.count); }
+        else if (res.count > 4 && crossLong < 8) { crossLong++; check(naiveSolve(b.walls, robots, tg.pos, tr, 4) === -1, 'naive BFS found a shorter (≤4) solution than ' + res.count); }
+      }
+      check(solved === 100, 'only ' + solved + ' rounds solved in ' + attempts + ' attempts');
+      stats = { solved, redraws, avgMs: Math.round(totalMs / Math.max(1, solved)), maxMs: Math.round(maxMs), dist, crossShort, crossLong };
+      log('   solved ' + solved + ', redrawn ' + redraws + ', avg ' + stats.avgMs + ' ms, max ' + stats.maxMs + ' ms; optimum cross-checked on ' + (crossShort + crossLong) + ' rounds');
+      log('   optimal-length distribution: ' + Object.keys(dist).sort((a, b) => a - b).map(k => k + ':' + dist[k]).join('  '));
+    });
+
+    section('Solver respects the depth cap and the "already on target" rule', () => {
+      let tested = 0;
+      for (let k = 0; k < 200 && tested < 10; k++) {
+        const b = buildBoard(rseed()); const robots = randomRobots(b, 4, rng);
+        const tg = b.targets[Math.floor(rng() * 16)];
+        const res = solve(b.walls, robots, tg.pos, tg.color, { stops: b.stops, timeMs: 3000 });
+        if (!res.ok || res.count < 2) continue;
+        tested++;
+        const capped = solve(b.walls, robots, tg.pos, tg.color, { stops: b.stops, maxDepth: res.count - 1, timeMs: 3000 });
+        check(!capped.ok, 'found a solution shorter than the optimum with depth cap');
+        const r2 = robots.slice(); r2[tg.color] = tg.pos;
+        if (new Set(r2).size === 4) check(solve(b.walls, r2, tg.pos, tg.color, { stops: b.stops }).reason === 'already', 'already-on-target not detected');
+      }
+      check(tested >= 5, 'not enough depth-cap samples');
+    });
+
+    section('Seed codes round-trip', () => {
+      for (let k = 0; k < 200; k++) {
+        const b = buildBoard(rseed()); const n = k % 2 ? 5 : 4; const robots = randomRobots(b, n, rng); const t = Math.floor(rng() * 17);
+        const code = encodeCode(b.seed, robots, t); const d = decodeCode(code);
+        check(d && d.seed === b.seed && d.target === t && d.robots.join() === robots.join(), 'code round-trip failed: ' + code);
+      }
+      for (const bad of ['', 'abc', 'zzzzzzzz-11223344', '1-11223377h', '1-1122337', '1-7777777700', '1-11111111' + '2'])
+        check(decodeCode(bad) === null, 'invalid code accepted: "' + bad + '"');
+    });
+
+    const ms = Math.round(now() - T0);
+    log('');
+    log(fail === 0 ? '✓ ALL TESTS PASSED (' + pass + ' checks, ' + (ms / 1000).toFixed(1) + ' s)' : '✗ ' + fail + ' FAILED, ' + pass + ' passed (' + (ms / 1000).toFixed(1) + ' s)');
+    return { pass, fail, failures, ms, stats };
+  }
+
+  return { BIT, DX, DY, ARROWS, CENTER, isCenter, mulberry32, shuffle, neighbor, buildBoard, computeStops,
+    slide, slideStep, solve, naiveSolve, randomRobots, encodeCode, decodeCode, runTests, QUADS };
+})();
+</script>
+
+<!-- ===================== UI ===================== -->
+<script>
+(function () {
+  'use strict';
+  const C = RRCore;
+  const $ = id => document.getElementById(id);
+  const ROBOTS = [
+    { name: 'Red', letter: 'R', fill: '#e04848', dark: '#8f2020', text: '#fff' },
+    { name: 'Green', letter: 'G', fill: '#2fa363', dark: '#145c34', text: '#fff' },
+    { name: 'Blue', letter: 'B', fill: '#3b74e0', dark: '#173f8c', text: '#fff' },
+    { name: 'Yellow', letter: 'Y', fill: '#f2c230', dark: '#8a6a08', text: '#3a2f00' },
+    { name: 'Silver', letter: 'S', fill: '#aab2bb', dark: '#555d67', text: '#20242a' },
+  ];
+  const SHAPES = ['circle', 'triangle', 'square', 'star', 'vortex'];
+  const DIFF = { any: [1, 99], easy: [2, 4], medium: [5, 7], hard: [8, 99] };
+  const DIFF_LABEL = { any: 'Any difficulty', easy: 'Easy (2–4)', medium: 'Medium (5–7)', hard: 'Hard (8+)' };
+
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* storage unavailable */ } },
+  };
+  const DEFAULT_SETTINGS = { silver: false, persist: true, difficulty: 'any', think: false, thinkSecs: 60, preview: false };
+  const DEFAULT_STATS = { played: 0, solved: 0, optimal: 0, sumOver: 0, sumTime: 0, streak: 0, bestStreak: 0, predictions: 0, predCorrect: 0, predAchieved: 0 };
+
+  const S = {
+    settings: Object.assign({}, DEFAULT_SETTINGS, store.get('slidebots.settings', {})),
+    stats: Object.assign({}, DEFAULT_STATS, store.get('slidebots.stats', {})),
+    board: null, deck: [], robots: [], start: [], targetIdx: -1, solution: null, code: '',
+    phase: 'loading', history: [], selected: 0, hintLevel: 0, revealed: false, recorded: false,
+    timer: { acc: 0, since: 0, running: false }, paused: false, think: null, replay: null, result: null,
+    gen: 0, anims: new Map(), trails: [], cell: 38, margin: 8, dpr: 1, raf: false,
+  };
+  const cv = $('board');
+  const nRobots = () => S.settings.silver ? 5 : 4;
+  const target = () => S.board.targets[S.targetIdx];
+  const saveSettings = () => store.set('slidebots.settings', S.settings);
+  const saveStats = () => store.set('slidebots.stats', S.stats);
+  const fmtTime = ms => { const s = Math.floor(ms / 1000); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+  const targetName = t => t.color === 4 ? 'Rainbow vortex' : ROBOTS[t.color].name + ' ' + SHAPES[t.shape];
+  const randU32 = () => { try { return crypto.getRandomValues(new Uint32Array(1))[0]; } catch (e) { return (Math.random() * 4294967296) >>> 0; } };
+
+  // ---------------- solver worker ----------------
+  function workerMain() {
+    self.onmessage = function (e) {
+      const m = e.data;
+      if (m.type === 'solve') {
+        let result;
+        try { result = RRCore.solve(m.walls, m.robots, m.target, m.targetRobot, { maxDepth: m.maxDepth, timeMs: m.timeMs }); }
+        catch (err) { result = { ok: false, reason: 'error', error: String(err && err.message || err) }; }
+        self.postMessage({ id: m.id, result });
+      } else if (m.type === 'test') {
+        const result = RRCore.runTests(line => self.postMessage({ id: m.id, type: 'progress', line }));
+        self.postMessage({ id: m.id, result });
+      }
+    };
+  }
+  const workerSrc = $('core').textContent + '\n;(' + workerMain.toString() + ')();';
+  function makeWorker(onMessage) {
+    try {
+      const w = new Worker(URL.createObjectURL(new Blob([workerSrc], { type: 'text/javascript' })));
+      w.onmessage = onMessage; return w;
+    } catch (e) { return null; }
+  }
+  let worker = null, reqId = 0; const pending = new Map();
+  function initWorker() {
+    worker = makeWorker(e => { const p = pending.get(e.data.id); if (!p) return; pending.delete(e.data.id); p(e.data.result); });
+    if (worker) worker.onerror = () => { worker = null; flushPending({ ok: false, reason: 'error' }); };
+  }
+  function flushPending(res) { for (const p of pending.values()) p(res); pending.clear(); }
+  function cancelSolves() {
+    if (pending.size && worker) { worker.terminate(); flushPending({ ok: false, reason: 'cancelled' }); initWorker(); }
+  }
+  function solveAsync(robots, t) {
+    const tg = S.board.targets[t];
+    const msg = { type: 'solve', walls: S.board.walls, robots: robots.slice(), target: tg.pos, targetRobot: tg.color < 4 ? tg.color : -1, maxDepth: 15, timeMs: 3000 };
+    if (!worker) { // fallback: run on the main thread (UI may pause briefly)
+      return new Promise(res => setTimeout(() => {
+        try { res(C.solve(msg.walls, msg.robots, msg.target, msg.targetRobot, { stops: S.board.stops, maxDepth: 15, timeMs: 3000 })); }
+        catch (e) { res({ ok: false, reason: 'error' }); }
+      }, 20));
+    }
+    return new Promise(res => { const id = ++reqId; pending.set(id, res); msg.id = id; worker.postMessage(msg); });
+  }
+
+  // ---------------- timer ----------------
+  const elapsed = () => S.timer.acc + (S.timer.running ? performance.now() - S.timer.since : 0);
+  function timerReset() { S.timer = { acc: 0, since: 0, running: false }; }
+  function timerStart() { if (!S.timer.running) { S.timer.running = true; S.timer.since = performance.now(); } }
+  function timerStop() { if (S.timer.running) { S.timer.acc += performance.now() - S.timer.since; S.timer.running = false; } }
+
+  // ---------------- rounds ----------------
+  function newBoard(seed) {
+    S.board = C.buildBoard(seed == null ? randU32() : seed);
+    S.deck = [];
+    $('boardSeedLbl').textContent = S.board.seed.toString(36);
+  }
+  function drawTarget(tried) {
+    let cand = S.deck.filter(t => !tried.has(t));
+    if (!cand.length) { S.deck = C.shuffle([...Array(17).keys()], Math.random); cand = S.deck.filter(t => !tried.has(t)); }
+    const t = cand[cand.length - 1]; S.deck.splice(S.deck.lastIndexOf(t), 1); return t;
+  }
+  function returnCard(t) { S.deck.splice(Math.floor(Math.random() * (S.deck.length + 1)), 0, t); }
+
+  function enterLoading(msg) {
+    cancelSolves(); hideResult(); S.replay = null; S.think = null; S.paused = false;
+    S.phase = 'loading'; timerReset(); setLoading(msg); updateHUD(); render();
+    return ++S.gen;
+  }
+
+  async function startNewRound(opts) {
+    opts = opts || {};
+    const gen = enterLoading('Drawing a puzzle…');
+    const n = nRobots();
+    let robots = (S.settings.persist && !opts.randomize && S.robots.length === n) ? S.robots.slice() : C.randomRobots(S.board, n, Math.random);
+    S.robots = robots.slice(); render();
+    let diff = S.settings.difficulty, attempts = 0; const tried = new Set();
+    for (;;) {
+      if (gen !== S.gen) return;
+      attempts++;
+      if (attempts > 300 && diff !== 'any') { flash('Could not find a ' + DIFF_LABEL[diff].toLowerCase() + ' puzzle quickly — showing any difficulty.', true); diff = 'any'; }
+      if (tried.size >= 17) { robots = C.randomRobots(S.board, n, Math.random); tried.clear(); S.robots = robots.slice(); render(); }
+      const t = drawTarget(tried); tried.add(t);
+      const tg = S.board.targets[t];
+      const on = tg.color === 4 ? robots.indexOf(tg.pos) >= 0 : (tg.color < n && robots[tg.color] === tg.pos);
+      if (on) { returnCard(t); continue; }   // invalid round: target robot already on target → redraw
+      if (diff !== 'any' || attempts > 1) setLoading((diff === 'any' ? 'Drawing a puzzle' : 'Looking for a ' + DIFF_LABEL[diff].toLowerCase() + ' puzzle') + '… (draw ' + attempts + ')');
+      const res = await solveAsync(robots, t);
+      if (gen !== S.gen) return;
+      if (!res.ok) { returnCard(t); continue; }   // unsolvable within 15 moves / 3 s → redraw
+      const [lo, hi] = DIFF[diff];
+      if (res.count < lo || res.count > hi) { returnCard(t); continue; }
+      beginRound(robots, t, res);
+      return;
+    }
+  }
+
+  async function loadPuzzle(dec) {
+    const n = dec.robots.length;
+    if (S.settings.silver !== (n === 5)) { S.settings.silver = n === 5; saveSettings(); }
+    const gen = enterLoading('Solving loaded puzzle…');
+    newBoard(dec.seed);
+    S.robots = dec.robots.slice();
+    const tg = S.board.targets[dec.target];
+    const on = tg.color === 4 ? dec.robots.indexOf(tg.pos) >= 0 : dec.robots[tg.color] === tg.pos;
+    if (on) { flash('That puzzle is invalid (robot already on target).', true); return startNewRound(); }
+    const res = await solveAsync(dec.robots, dec.target);
+    if (gen !== S.gen) return;
+    if (!res.ok) { flash('No solution within 15 moves / 3 s for that code — drawing a new round.', true); return startNewRound(); }
+    S.deck = C.shuffle([...Array(17).keys()].filter(t => t !== dec.target), Math.random);
+    beginRound(dec.robots, dec.target, res);
+    flash('Loaded puzzle ' + S.code);
+  }
+
+  function beginRound(robots, t, sol) {
+    S.start = robots.slice(); S.robots = robots.slice(); S.targetIdx = t; S.solution = sol;
+    S.history = []; S.hintLevel = 0; S.revealed = false; S.recorded = false; S.result = null; S.replay = null;
+    S.anims.clear(); S.trails = []; S.paused = false;
+    const tg = target(); S.selected = tg.color < 4 ? tg.color : 0;
+    S.code = C.encodeCode(S.board.seed, S.start, t);
+    timerReset(); timerStart(); setLoading(null);
+    if (S.settings.think) {
+      const ms = Math.max(5, Math.min(600, +S.settings.thinkSecs || 60)) * 1000;
+      S.think = { total: ms, remaining: ms, prediction: null, locked: false, spoiled: false };
+      S.phase = 'think';
+      $('predict').value = '';
+      setTimeout(() => { if (S.phase === 'think') $('predict').focus(); }, 30);
+    } else { S.think = null; S.phase = 'play'; }
+    updateHUD(); render();
+  }
+
+  function lockPrediction() {
+    if (S.phase !== 'think') return;
+    const v = parseInt($('predict').value, 10);
+    S.think.prediction = v >= 1 && v <= 99 ? v : null;
+    S.think.locked = true; S.phase = 'play';
+    $('predict').blur();
+    updateHUD(); render();
+  }
+
+  function isGoalMove(i, to) { const tg = target(); return to === tg.pos && (tg.color === 4 || tg.color === i); }
+
+  function move(i, d) {
+    if (S.paused || i >= S.robots.length) return;
+    if (S.phase === 'think') { flash('Thinking time — enter your prediction and press Enter (or Space) first.'); return; }
+    if (S.phase !== 'play') return;
+    S.selected = i;
+    const from = S.robots[i], to = C.slide(S.board.stops, S.robots, i, d);
+    if (to === from) { S.anims.set(i, { bump: d, t0: performance.now(), dur: 140 }); updateHUD(); render(); return; }
+    S.history.push({ robot: i, from, to, dir: d });
+    S.robots[i] = to; animate(i, from, to);
+    if (isGoalMove(i, to)) { S.phase = 'solved'; timerStop(); const g = S.gen; setTimeout(() => { if (g === S.gen && S.phase === 'solved') finishRound(); }, 180); }
+    updateHUD();
+  }
+
+  function animate(i, from, to) {
+    const t0 = performance.now();
+    S.anims.set(i, { from, to, t0, dur: 150 });
+    S.trails.push({ from, to, color: ROBOTS[i].fill, t0, dur: 650 });
+    render();
+  }
+
+  function undo() {
+    if (S.paused) return;
+    if (S.phase === 'solved') { S.phase = 'play'; hideResult(); timerStart(); }
+    if (S.phase !== 'play' || !S.history.length) return;
+    const m = S.history.pop(); S.robots[m.robot] = m.from; S.selected = m.robot;
+    S.anims.set(m.robot, { from: m.to, to: m.from, t0: performance.now(), dur: 110 });
+    updateHUD(); render();
+  }
+  function resetRound() {
+    if (S.paused) return;
+    if (S.phase === 'solved') { S.phase = 'play'; hideResult(); timerStart(); }
+    if (S.phase !== 'play') return;
+    S.robots = S.start.slice(); S.history = []; S.anims.clear(); S.trails = [];
+    updateHUD(); render();
+  }
+
+  function recordStats(kind) {
+    if (S.recorded) return; S.recorded = true;
+    const st = S.stats, opt = S.solution.count;
+    st.played++;
+    if (kind === 'solved') {
+      const mine = S.history.length, diff = mine - opt;
+      st.solved++; st.sumOver += diff; st.sumTime += S.result.time;
+      if (diff === 0) { st.optimal++; st.streak++; st.bestStreak = Math.max(st.bestStreak, st.streak); } else st.streak = 0;
+    } else st.streak = 0;
+    if (S.think && !S.think.spoiled) {
+      st.predictions++;
+      if (S.think.prediction === opt) st.predCorrect++;
+      if (kind === 'solved' && S.think.prediction != null && S.history.length <= S.think.prediction) st.predAchieved++;
+    }
+    saveStats();
+  }
+
+  function finishRound() {
+    const mine = S.history.length, opt = S.solution.count, diff = mine - opt;
+    S.result = { mine, opt, diff, time: elapsed() };
+    const counted = !S.revealed && !S.recorded;
+    if (counted) recordStats('solved');
+    const rt = $('resRating');
+    rt.textContent = diff === 0 ? 'Optimal!' : '+' + diff;
+    rt.className = 'rating ' + (diff === 0 ? 'good' : diff <= 2 ? 'ok' : 'bad');
+    $('resMine').textContent = mine; $('resOpt').textContent = opt; $('resTime').textContent = fmtTime(S.result.time);
+    let thinkHtml = '';
+    if (S.think && counted) {
+      const p = S.think.prediction;
+      if (S.think.spoiled) thinkHtml = '<span class="muted">Prediction not scored (hint used before locking in).</span>';
+      else thinkHtml = 'Prediction <b>' + (p == null ? '—' : p) + '</b>: ' +
+        (p === opt ? '<span style="color:var(--good)">✓ matched optimal</span>' : '<span style="color:var(--bad)">✗ optimal was ' + opt + '</span>') + ' · ' +
+        (p != null && mine <= p ? '<span style="color:var(--good)">✓ achieved</span>' : '<span style="color:var(--bad)">✗ not achieved</span>');
+    }
+    $('resThink').innerHTML = thinkHtml;
+    $('resNote').textContent = counted ? (diff === 0 ? 'Optimal streak: ' + S.stats.streak : '') : 'Practice — solution was revealed, not counted in stats.';
+    $('result').hidden = false;
+    updateHUD();
+  }
+  function hideResult() { $('result').hidden = true; }
+
+  function markRevealed() {
+    if (S.revealed) return;
+    S.revealed = true;
+    if (S.think && !S.think.locked) S.think.spoiled = true;
+    if (S.phase !== 'solved' && !S.recorded) recordStats('gaveup');
+  }
+
+  function hint() {
+    if (!S.solution || S.phase === 'loading' || S.phase === 'replay') return;
+    if (S.hintLevel >= 3) return;
+    S.hintLevel++;
+    if (S.think && !S.think.locked) S.think.spoiled = true;
+    if (S.hintLevel >= 3) markRevealed();
+    updateHUD();
+  }
+
+  function showSolution() {
+    if (!S.solution || S.phase === 'loading') return;
+    if (S.paused) togglePause();
+    markRevealed(); hideResult(); timerStop();
+    if (S.think && !S.think.locked) { S.think.locked = true; }
+    const pos = [S.start.slice()];
+    for (const m of S.solution.moves) { const r = pos[pos.length - 1].slice(); r[m.robot] = C.slide(S.board.stops, r, m.robot, m.dir); pos.push(r); }
+    S.replay = { step: 0, pos };
+    S.phase = 'replay'; S.robots = S.start.slice(); S.anims.clear(); S.trails = [];
+    updateHUD(); render();
+  }
+  function replayStep(delta) {
+    if (S.phase !== 'replay') return;
+    const R = S.replay, ns = Math.max(0, Math.min(R.pos.length - 1, R.step + delta));
+    if (ns === R.step) return;
+    if (ns === R.step + 1) {
+      const m = S.solution.moves[R.step]; S.selected = m.robot;
+      animate(m.robot, R.pos[R.step][m.robot], R.pos[ns][m.robot]);
+    } else { S.anims.clear(); S.trails = []; }
+    R.step = ns; S.robots = R.pos[ns].slice();
+    updateHUD(); render();
+  }
+  function replayDone() {
+    if (S.phase !== 'replay') return;
+    S.replay = null; S.phase = 'play'; S.robots = S.start.slice(); S.history = []; S.anims.clear(); S.trails = [];
+    const tg = target(); S.selected = tg.color < 4 ? tg.color : 0;
+    timerStart(); updateHUD(); render();
+  }
+
+  function nextRound() {
+    if (S.phase !== 'loading' && S.solution && !S.recorded && (S.history.length > 0 || S.hintLevel > 0 || S.revealed)) recordStats('gaveup');
+    if (S.phase === 'replay' || S.phase === 'solved') { /* robots remain as currently shown */ }
+    startNewRound();
+  }
+
+  function togglePause() {
+    if (S.phase === 'think') { lockPrediction(); return; }
+    if (S.phase !== 'play' && !S.paused) return;
+    S.paused = !S.paused;
+    if (S.paused) timerStop(); else timerStart();
+    $('pauseOverlay').hidden = !S.paused;
+    updateHUD();
+  }
+
+  // ---------------- status ----------------
+  let flashTimer = 0;
+  function flash(msg, warn) {
+    const el = $('status'); el.textContent = msg; el.className = warn ? 'warn' : '';
+    clearTimeout(flashTimer); flashTimer = setTimeout(() => { el.textContent = ''; }, 4000);
+  }
+  function setLoading(msg) { const el = $('loadingPill'); if (msg) { el.textContent = msg; el.hidden = false; } else el.hidden = true; }
+
+  // ---------------- HUD ----------------
+  const chipHtml = (m, cls) => '<span class="chip ' + (cls || '') + '" style="--c:' + ROBOTS[m.robot].fill + '">' + ROBOTS[m.robot].letter + ' ' + C.ARROWS[m.dir] + '</span>';
+
+  function updateHUD() {
+    const tg = S.board && S.targetIdx >= 0 ? target() : null;
+    const live = S.phase !== 'loading';
+    $('tgtName').textContent = tg && live ? targetName(tg) : 'Drawing…';
+    $('tgtSub').textContent = tg && live ? (tg.color === 4 ? 'Any robot may finish here' : 'Move the ' + ROBOTS[tg.color].name.toLowerCase() + ' robot onto it') + ' · ' + DIFF_LABEL[S.settings.difficulty] : DIFF_LABEL[S.settings.difficulty];
+    drawIcon(tg && live ? tg : null);
+    $('mMoves').textContent = S.phase === 'replay' ? S.replay.step : S.history.length;
+    const showOpt = S.solution && live && (S.hintLevel >= 1 || S.revealed || S.phase === 'solved');
+    $('mOpt').textContent = showOpt ? S.solution.count : '?';
+    $('mTime').textContent = fmtTime(elapsed());
+
+    const playing = S.phase === 'play' || S.phase === 'solved';
+    $('undoBtn').disabled = !(playing && S.history.length);
+    $('resetBtn').disabled = !(playing && S.history.length);
+    $('hintBtn').disabled = !(live && S.phase !== 'replay' && S.hintLevel < 3);
+    $('solBtn').disabled = !(live && S.solution && S.phase !== 'replay');
+    $('nextBtn').disabled = false;
+    $('myMoves').innerHTML = S.history.length ? S.history.map(m => chipHtml(m)).join('') : '<span class="small muted">—</span>';
+
+    // hint
+    const hb = $('hintBox');
+    if (S.hintLevel > 0 && S.solution && live) {
+      const sol = S.solution, first = sol.moves[0];
+      let h = '<div>Optimal: <b>' + sol.count + ' move' + (sol.count > 1 ? 's' : '') + '</b></div>';
+      if (S.hintLevel >= 2) h += '<div>First move: the <b style="color:' + ROBOTS[first.robot].dark + '">' + ROBOTS[first.robot].name.toLowerCase() + '</b> robot</div>';
+      if (S.hintLevel >= 3) h += '<div class="chips" style="margin-top:4px">' + sol.moves.map(m => chipHtml(m)).join('') + '</div>';
+      else h += '<div class="small muted">Press Hint again for more.</div>';
+      hb.innerHTML = h; hb.hidden = false;
+    } else hb.hidden = true;
+
+    // think
+    const tc = $('thinkCard');
+    if (S.think && live) {
+      tc.hidden = false;
+      const active = S.phase === 'think';
+      $('thinkInputRow').hidden = !active; $('thinkBar').hidden = !active;
+      $('thinkClock').textContent = active ? fmtTime(S.think.remaining + 999) : 'locked';
+      $('thinkBar').firstElementChild.style.width = (100 * S.think.remaining / S.think.total) + '%';
+      const tl = $('thinkLocked');
+      tl.hidden = active;
+      tl.innerHTML = S.think.spoiled ? 'Prediction not scored (hint/solution used before locking in).' :
+        'Your prediction: <b>' + (S.think.prediction == null ? 'none' : S.think.prediction + ' moves') + '</b>';
+    } else tc.hidden = true;
+
+    // replay
+    const rb = $('replayBar');
+    if (S.phase === 'replay') {
+      rb.hidden = false;
+      const R = S.replay;
+      $('replayStep').textContent = 'Step ' + R.step + ' / ' + (R.pos.length - 1);
+      $('replayMoves').innerHTML = S.solution.moves.map((m, k) => chipHtml(m, k < R.step ? '' : 'dim')).join('');
+      $('prevBtn').disabled = R.step === 0; $('stepBtn').disabled = R.step === R.pos.length - 1;
+    } else rb.hidden = true;
+
+    // robot buttons
+    const n = nRobots(), wrap = $('robotBtns');
+    if (wrap.childElementCount !== n) {
+      wrap.innerHTML = '';
+      for (let i = 0; i < n; i++) {
+        const b = document.createElement('button');
+        b.className = 'rbtn' + (i >= 3 ? ' light' : ''); b.style.setProperty('--c', ROBOTS[i].fill);
+        b.innerHTML = ROBOTS[i].letter + '<span class="num">' + (i + 1) + '</span>';
+        b.title = ROBOTS[i].name + ' robot (' + (i + 1) + ')';
+        b.onclick = () => { S.selected = i; updateHUD(); render(); };
+        wrap.appendChild(b);
+      }
+    }
+    [...wrap.children].forEach((b, i) => b.classList.toggle('sel', i === S.selected));
+    $('code').textContent = live && S.code ? S.code : '—';
+  }
+
+  // ---------------- drawing ----------------
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+  }
+  function shapePath(ctx, shape, x, y, r) {
+    ctx.beginPath();
+    if (shape === 0) ctx.arc(x, y, r, 0, Math.PI * 2);
+    else if (shape === 1) { ctx.moveTo(x, y - r * 1.05); ctx.lineTo(x + r * 1.05, y + r * 0.8); ctx.lineTo(x - r * 1.05, y + r * 0.8); ctx.closePath(); }
+    else if (shape === 2) ctx.rect(x - r * 0.85, y - r * 0.85, r * 1.7, r * 1.7);
+    else if (shape === 3) {
+      for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + k * Math.PI / 5, rr = k % 2 ? r * 0.48 : r * 1.12; ctx.lineTo(x + rr * Math.cos(a), y + rr * Math.sin(a)); }
+      ctx.closePath();
+    }
+  }
+  function drawTargetSymbol(ctx, t, x, y, r, alpha) {
+    ctx.save(); ctx.globalAlpha = alpha == null ? 1 : alpha;
+    if (t.color === 4) {
+      const cols = ['#e04848', '#2fa363', '#3b74e0', '#f2c230'];
+      for (let k = 0; k < 4; k++) { ctx.beginPath(); ctx.moveTo(x, y); ctx.arc(x, y, r, k * Math.PI / 2 - Math.PI / 4, (k + 1) * Math.PI / 2 - Math.PI / 4); ctx.closePath(); ctx.fillStyle = cols[k]; ctx.fill(); }
+      ctx.beginPath(); ctx.arc(x, y, r * 0.32, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill();
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.lineWidth = Math.max(1, r * 0.12); ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.stroke();
+    } else {
+      shapePath(ctx, t.shape, x, y, r);
+      ctx.fillStyle = ROBOTS[t.color].fill; ctx.fill();
+      ctx.lineWidth = Math.max(1, r * 0.14); ctx.lineJoin = 'round'; ctx.strokeStyle = ROBOTS[t.color].dark; ctx.stroke();
+    }
+    ctx.restore();
+  }
+  function drawIcon(tg) {
+    const c = $('tgtIcon'), ctx = c.getContext('2d');
+    ctx.clearRect(0, 0, 96, 96);
+    if (tg) drawTargetSymbol(ctx, tg, 48, 50, 26, 1);
+  }
+
+  const ease = t => 1 - Math.pow(1 - t, 3);
+  function render() { if (!S.raf) { S.raf = true; requestAnimationFrame(draw); } }
+
+  function draw() {
+    S.raf = false;
+    const ctx = cv.getContext('2d'), cs = S.cell, M = S.margin, W = cs * 16 + M * 2;
+    const tnow = performance.now();
+    let again = false;
+    ctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0);
+    ctx.clearRect(0, 0, W, W);
+    ctx.fillStyle = '#e4dccb'; roundRect(ctx, 0, 0, W, W, 12); ctx.fill();
+    ctx.fillStyle = '#f7f3ea'; ctx.fillRect(M, M, cs * 16, cs * 16);
+    if (!S.board) return;
+    const B = S.board, cx = p => M + ((p & 15) + 0.5) * cs, cy = p => M + ((p >> 4) + 0.5) * cs;
+
+    // subtle grid
+    ctx.strokeStyle = '#e3dac8'; ctx.lineWidth = 1; ctx.beginPath();
+    for (let i = 1; i < 16; i++) { const o = Math.round(M + i * cs) + 0.5; ctx.moveTo(o, M); ctx.lineTo(o, M + 16 * cs); ctx.moveTo(M, o); ctx.lineTo(M + 16 * cs, o); }
+    ctx.stroke();
+
+    const live = S.phase !== 'loading' && S.targetIdx >= 0;
+    const tg = live ? target() : null;
+    // targets
+    B.targets.forEach((t, k) => { if (k !== S.targetIdx || !live) drawTargetSymbol(ctx, t, cx(t.pos), cy(t.pos), cs * 0.19, 0.7); });
+    if (tg) {
+      const x = M + (tg.pos & 15) * cs, y = M + (tg.pos >> 4) * cs;
+      const col = tg.color === 4 ? '#7a5cd6' : ROBOTS[tg.color].fill;
+      ctx.save(); ctx.globalAlpha = 0.22; ctx.fillStyle = col; ctx.fillRect(x, y, cs, cs); ctx.restore();
+      ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = Math.max(2, cs * 0.07); roundRect(ctx, x + 3, y + 3, cs - 6, cs - 6, 5); ctx.stroke(); ctx.restore();
+      drawTargetSymbol(ctx, tg, cx(tg.pos), cy(tg.pos), cs * 0.33, 1);
+    }
+    // centre block
+    ctx.fillStyle = '#38342d'; roundRect(ctx, M + 7 * cs + 1, M + 7 * cs + 1, 2 * cs - 2, 2 * cs - 2, 6); ctx.fill();
+    if (tg) drawTargetSymbol(ctx, tg, M + 8 * cs, M + 8 * cs, cs * 0.55, 1);
+
+    // walls
+    const wt = Math.max(3, cs * 0.12);
+    ctx.strokeStyle = '#26221c'; ctx.lineWidth = wt; ctx.lineCap = 'round'; ctx.beginPath();
+    for (let p = 0; p < 256; p++) {
+      let w = B.walls[p]; const x = M + (p & 15) * cs, y = M + (p >> 4) * cs;
+      if (C.isCenter(p)) { if (C.isCenter(p - 16)) w &= ~1; if (C.isCenter(p - 1)) w &= ~8; }
+      if (w & 1) { ctx.moveTo(x, y); ctx.lineTo(x + cs, y); }
+      if (w & 8) { ctx.moveTo(x, y); ctx.lineTo(x, y + cs); }
+      if ((p & 15) === 15 && (w & 2)) { ctx.moveTo(x + cs, y); ctx.lineTo(x + cs, y + cs); }
+      if ((p >> 4) === 15 && (w & 4)) { ctx.moveTo(x, y + cs); ctx.lineTo(x + cs, y + cs); }
+    }
+    ctx.stroke();
+
+    // trails
+    S.trails = S.trails.filter(t => tnow - t.t0 < t.dur);
+    for (const t of S.trails) {
+      const k = (tnow - t.t0) / t.dur;
+      ctx.save(); ctx.globalAlpha = 0.38 * (1 - k); ctx.strokeStyle = t.color; ctx.lineWidth = cs * 0.22; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(cx(t.from), cy(t.from)); ctx.lineTo(cx(t.to), cy(t.to)); ctx.stroke(); ctx.restore();
+      again = true;
+    }
+
+    // previews of where the selected robot would stop
+    const canPreview = S.settings.preview && (S.phase === 'play' || S.phase === 'think') && !S.paused && S.selected < S.robots.length;
+    if (canPreview) {
+      const i = S.selected, p = S.robots[i];
+      for (let d = 0; d < 4; d++) {
+        const s = C.slide(B.stops, S.robots, i, d); if (s === p) continue;
+        const x1 = cx(p), y1 = cy(p), x2 = cx(s), y2 = cy(s), ux = C.DX[d], uy = C.DY[d];
+        ctx.save(); ctx.strokeStyle = ROBOTS[i].dark; ctx.globalAlpha = 0.4; ctx.lineWidth = 2; ctx.setLineDash([4, 4]);
+        ctx.beginPath(); ctx.moveTo(x1 + ux * cs * 0.45, y1 + uy * cs * 0.45); ctx.lineTo(x2 - ux * cs * 0.3, y2 - uy * cs * 0.3); ctx.stroke();
+        ctx.setLineDash([]); ctx.beginPath(); ctx.arc(x2, y2, cs * 0.3, 0, Math.PI * 2); ctx.stroke();
+        const ax = x2 - ux * cs * 0.3, ay = y2 - uy * cs * 0.3, a = cs * 0.14;
+        ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(ax - ux * a - uy * a, ay - uy * a - ux * a); ctx.moveTo(ax, ay); ctx.lineTo(ax - ux * a + uy * a, ay - uy * a + ux * a); ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    // robots
+    for (let i = 0; i < S.robots.length; i++) {
+      let fx = (S.robots[i] & 15), fy = (S.robots[i] >> 4);
+      const an = S.anims.get(i);
+      if (an) {
+        const k = Math.min(1, (tnow - an.t0) / an.dur);
+        if (an.bump != null) { const off = Math.sin(k * Math.PI) * 0.12; fx += C.DX[an.bump] * off; fy += C.DY[an.bump] * off; }
+        else { const e = ease(k); fx = (an.from & 15) + ((an.to & 15) - (an.from & 15)) * e; fy = (an.from >> 4) + ((an.to >> 4) - (an.from >> 4)) * e; }
+        if (k >= 1) S.anims.delete(i); else again = true;
+      }
+      const x = M + (fx + 0.5) * cs, y = M + (fy + 0.5) * cs, r = cs * 0.36, R = ROBOTS[i];
+      ctx.save();
+      if (i === S.selected && S.phase !== 'loading') {
+        ctx.shadowColor = R.fill; ctx.shadowBlur = cs * 0.5;
+        ctx.beginPath(); ctx.arc(x, y, r + cs * 0.07, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill();
+        ctx.shadowBlur = 0;
+      } else { ctx.shadowColor = 'rgba(0,0,0,.25)'; ctx.shadowBlur = 3; ctx.shadowOffsetY = 1; }
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fillStyle = R.fill; ctx.fill();
+      ctx.shadowColor = 'transparent';
+      ctx.lineWidth = Math.max(2, cs * 0.07); ctx.strokeStyle = R.dark; ctx.stroke();
+      ctx.fillStyle = R.text; ctx.font = '700 ' + Math.round(cs * 0.38) + 'px -apple-system,BlinkMacSystemFont,system-ui,sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(R.letter, x, y + cs * 0.02);
+      ctx.restore();
+    }
+    if (again) render();
+  }
+
+  function layout() {
+    const availH = window.innerHeight - 32, availW = window.innerWidth - 32 - 330 - 20;
+    const size = Math.max(320, Math.min(640, availH, availW));
+    S.cell = Math.floor((size - 10) / 16);
+    S.margin = Math.floor((size - S.cell * 16) / 2);
+    const px = S.cell * 16 + S.margin * 2;
+    S.dpr = window.devicePixelRatio || 1;
+    cv.style.width = cv.style.height = px + 'px';
+    cv.width = cv.height = Math.round(px * S.dpr);
+    $('boardWrap').style.width = px + 'px';
+    render();
+  }
+
+  // ---------------- input ----------------
+  cv.addEventListener('click', e => {
+    if (!S.board || S.phase === 'loading' || S.paused) return;
+    const rect = cv.getBoundingClientRect();
+    const x = Math.floor((e.clientX - rect.left - S.margin) / S.cell), y = Math.floor((e.clientY - rect.top - S.margin) / S.cell);
+    if (x < 0 || x > 15 || y < 0 || y > 15) return;
+    const p = y * 16 + x, hit = S.robots.indexOf(p);
+    if (hit >= 0) { S.selected = hit; updateHUD(); render(); return; }
+    // clicking a cell in line with the selected robot moves it that way
+    const r = S.robots[S.selected]; if (r == null) return;
+    const rx = r & 15, ry = r >> 4;
+    if (x === rx) move(S.selected, y < ry ? 0 : 2);
+    else if (y === ry) move(S.selected, x > rx ? 1 : 3);
+  });
+
+  const KEY_DIR = { arrowup: 0, arrowright: 1, arrowdown: 2, arrowleft: 3, w: 0, d: 1, s: 2, a: 3 };
+  document.addEventListener('keydown', e => {
+    const tag = e.target && e.target.tagName;
+    if (e.target && e.target.id === 'predict') { if (e.key === 'Enter') { e.preventDefault(); lockPrediction(); } return; }
+    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+    if (document.querySelector('dialog[open]')) return;
+    const k = e.key.toLowerCase();
+    if ((e.metaKey || e.ctrlKey) && k === 'z') { e.preventDefault(); undo(); return; }
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (S.phase === 'replay') {
+      if (k === 'arrowright' || k === 'd') { e.preventDefault(); replayStep(1); }
+      else if (k === 'arrowleft' || k === 'a') { e.preventDefault(); replayStep(-1); }
+      else if (k === 'enter' || k === 'escape') { e.preventDefault(); replayDone(); }
+      else if (k === 'n') nextRound();
+      return;
+    }
+    if (k in KEY_DIR) { e.preventDefault(); move(S.selected, KEY_DIR[k]); return; }
+    if (k >= '1' && k <= '5') { const i = +k - 1; if (i < S.robots.length) { S.selected = i; updateHUD(); render(); } return; }
+    if (k === 'z') undo();
+    else if (k === 'r') resetRound();
+    else if (k === 'n') nextRound();
+    else if (k === 'h') hint();
+    else if (k === 'p') { S.settings.preview = !S.settings.preview; saveSettings(); flash('Preview stops ' + (S.settings.preview ? 'on' : 'off')); render(); }
+    else if (k === ' ') { e.preventDefault(); togglePause(); }
+    else if (k === 'enter' && S.phase === 'solved') nextRound();
+    else return;
+    if (document.activeElement && document.activeElement.tagName === 'BUTTON') document.activeElement.blur();
+  });
+
+  document.querySelectorAll('.dpad button').forEach(b => b.addEventListener('click', () => move(S.selected, +b.dataset.dir)));
+  $('undoBtn').onclick = undo; $('resetBtn').onclick = resetRound; $('hintBtn').onclick = hint;
+  $('solBtn').onclick = showSolution; $('nextBtn').onclick = nextRound;
+  $('resNext').onclick = nextRound; $('resSolution').onclick = showSolution;
+  $('prevBtn').onclick = () => replayStep(-1); $('stepBtn').onclick = () => replayStep(1); $('doneBtn').onclick = replayDone;
+  $('lockBtn').onclick = lockPrediction;
+  // keep keyboard focus on the page after clicking buttons, so arrows/space keep working
+  document.addEventListener('click', e => { if (e.target.closest('button') && !e.target.closest('dialog')) e.target.closest('button').blur(); });
+
+  $('copyBtn').onclick = async () => {
+    if (!S.code) return;
+    try { await navigator.clipboard.writeText(S.code); flash('Copied ' + S.code); }
+    catch (e) { const r = document.createRange(); r.selectNodeContents($('code')); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); flash('Selected — press ⌘C to copy'); }
+  };
+  $('loadBtn').onclick = () => { $('loadErr').textContent = ''; $('loadInput').value = ''; $('loadDialog').showModal(); $('loadInput').focus(); };
+  $('loadCancel').onclick = () => $('loadDialog').close();
+  const doLoad = () => {
+    const dec = C.decodeCode($('loadInput').value);
+    if (!dec) { $('loadErr').textContent = 'Not a valid puzzle code.'; return; }
+    $('loadDialog').close(); loadPuzzle(dec);
+  };
+  $('loadGo').onclick = doLoad;
+  $('loadInput').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doLoad(); } });
+
+  // settings
+  function syncSettingsForm() {
+    const s = S.settings;
+    $('setDifficulty').value = s.difficulty; $('setPersist').value = s.persist ? '1' : '0';
+    $('setSilver').checked = s.silver; $('setPreview').checked = s.preview; $('setThink').checked = s.think; $('setThinkSecs').value = s.thinkSecs;
+  }
+  $('settingsBtn').onclick = () => { syncSettingsForm(); $('settingsDialog').showModal(); };
+  $('settingsClose').onclick = () => $('settingsDialog').close();
+  $('setDifficulty').onchange = e => { S.settings.difficulty = e.target.value; saveSettings(); updateHUD(); };
+  $('setPersist').onchange = e => { S.settings.persist = e.target.value === '1'; saveSettings(); };
+  $('setPreview').onchange = e => { S.settings.preview = e.target.checked; saveSettings(); render(); };
+  $('setThink').onchange = e => { S.settings.think = e.target.checked; saveSettings(); };
+  $('setThinkSecs').onchange = e => { const v = Math.max(5, Math.min(600, parseInt(e.target.value, 10) || 60)); S.settings.thinkSecs = v; e.target.value = v; saveSettings(); };
+  $('setSilver').onchange = e => { S.settings.silver = e.target.checked; saveSettings(); startNewRound({ randomize: true }); };
+  $('newBoardBtn').onclick = () => { newBoard(); $('settingsDialog').close(); startNewRound({ randomize: true }); };
+
+  // stats
+  function renderStats() {
+    const s = S.stats, pct = (a, b) => b ? Math.round(100 * a / b) + '%' : '—';
+    const rows = [
+      ['Rounds played', s.played],
+      ['Rounds solved', s.solved],
+      ['Solved optimally', s.optimal + ' (' + pct(s.optimal, s.played) + ' of played)'],
+      ['Avg. moves over optimal', s.solved ? '+' + (s.sumOver / s.solved).toFixed(2) : '—'],
+      ['Avg. time (solved)', s.solved ? fmtTime(s.sumTime / s.solved) : '—'],
+      ['Current optimal streak', s.streak],
+      ['Best optimal streak', s.bestStreak],
+      ['Think-first: prediction = optimal', s.predictions ? s.predCorrect + ' / ' + s.predictions + ' (' + pct(s.predCorrect, s.predictions) + ')' : '—'],
+      ['Think-first: prediction achieved', s.predictions ? s.predAchieved + ' / ' + s.predictions + ' (' + pct(s.predAchieved, s.predictions) + ')' : '—'],
+    ];
+    $('statsTable').innerHTML = rows.map(r => '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td></tr>').join('');
+  }
+  $('statsBtn').onclick = () => { renderStats(); $('statsDialog').showModal(); };
+  $('statsClose').onclick = () => $('statsDialog').close();
+  $('statsReset').onclick = () => { if (confirm('Reset all stats?')) { S.stats = Object.assign({}, DEFAULT_STATS); saveStats(); renderStats(); } };
+
+  // dev / tests
+  function runTests(onLine) {
+    return new Promise(resolve => {
+      const w = makeWorker(e => { if (e.data.type === 'progress') onLine(e.data.line); else { w.terminate(); resolve(e.data.result); } });
+      if (w) w.postMessage({ type: 'test', id: 1 });
+      else setTimeout(() => resolve(C.runTests(onLine)), 20);
+    });
+  }
+  $('devBtn').onclick = () => $('devDialog').showModal();
+  $('devClose').onclick = () => $('devDialog').close();
+  $('runTestsBtn').onclick = async () => {
+    const out = $('testOut'), btn = $('runTestsBtn');
+    btn.disabled = true; out.textContent = 'Running…\n';
+    const res = await runTests(line => { out.textContent += line + '\n'; out.scrollTop = out.scrollHeight; });
+    btn.disabled = false; console.log('Self-test result', res);
+  };
+  window.RR = { core: C, state: S, runTests: () => runTests(l => console.log(l)) };
+
+  // ---------------- tick ----------------
+  let lastTick = performance.now();
+  setInterval(() => {
+    const t = performance.now(), dt = t - lastTick; lastTick = t;
+    if (S.phase === 'think' && !S.paused) {
+      S.think.remaining = Math.max(0, S.think.remaining - dt);
+      if (S.think.remaining <= 0) lockPrediction();
+    }
+    if (S.phase !== 'loading') {
+      $('mTime').textContent = fmtTime(elapsed());
+      if (S.phase === 'think') { $('thinkClock').textContent = fmtTime(S.think.remaining + 999); $('thinkBar').firstElementChild.style.width = (100 * S.think.remaining / S.think.total) + '%'; }
+    }
+  }, 100);
+
+  window.addEventListener('resize', layout);
+  initWorker();
+  layout();
+  newBoard();
+  startNewRound({ randomize: true });
+})();
+</script>
+</body>
+</html>
