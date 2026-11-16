@@ -112,7 +112,39 @@ dialog .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
   padding:10px;height:300px;overflow:auto;white-space:pre-wrap;margin:10px 0 0}
 #devDialog{width:600px}
 hr{border:none;border-top:1px solid var(--line);margin:12px 0}
-.zoombtn{display:none}
+.zoombtn,.robotrow .fullbtn{display:none}
+#fullExit{display:none}
+/* ---- full-screen board: canvas fills the window, a few controls float on top ---- */
+body.full{overflow:hidden}
+body.full #boardWrap{position:fixed;inset:0;margin:0;z-index:50;width:auto !important;background:var(--bg)}
+body.full #board{border-radius:0;box-shadow:none}
+body.full .overlay{border-radius:0}
+body.full #loadingPill{top:calc(max(6px,env(safe-area-inset-top)) + 62px)}
+body.full #side{display:contents}
+body.full #side>*{display:none}
+body.full #side>.target-card,body.full #side>.metrics,body.full #side>.ctl,
+body.full #side>#hintBox,body.full #side>#replayBar,body.full #side>#thinkCard{position:fixed;z-index:60;background:rgba(255,255,255,.93)}
+body.full #side>.target-card{display:flex;top:max(6px,env(safe-area-inset-top));left:6px;max-width:calc(100vw - 222px);padding:5px 10px 5px 6px;gap:8px}
+body.full #side>.metrics{display:grid;top:max(6px,env(safe-area-inset-top));right:6px;gap:4px;background:none}
+body.full .metric{padding:3px 9px;min-width:54px;border-radius:10px;background:rgba(255,255,255,.93)}
+body.full .metric .lbl{font-size:9px}
+body.full .metric .val{font-size:17px;line-height:1.25}
+body.full #tgtSub,body.full .movesline,body.full button kbd{display:none}
+body.full #tgtIcon{width:34px;height:34px;border-radius:8px}
+body.full #tgtName{font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body.full #side>.ctl{display:block;left:6px;right:6px;bottom:max(8px,env(safe-area-inset-bottom));padding:8px}
+body.full .btn-grid{grid-template-columns:repeat(5,1fr)}
+body.full .btn-grid button{padding-left:2px;padding-right:2px}
+body.full #fullExit{display:block}
+body.full #side>#hintBox,body.full #side>#replayBar,body.full #side>#thinkCard{display:block;left:6px;right:6px;
+  bottom:calc(max(8px,env(safe-area-inset-bottom)) + 116px)}
+@media (orientation:landscape){
+  body.full #side>.target-card{max-width:236px}
+  body.full #side>.metrics{right:auto;left:6px;top:calc(max(6px,env(safe-area-inset-top)) + 54px)}
+  body.full #side>.ctl{right:auto;width:236px}
+  body.full .btn-grid{grid-template-columns:repeat(3,1fr)}
+  body.full #side>#hintBox,body.full #side>#replayBar,body.full #side>#thinkCard{left:auto;right:6px;width:236px;bottom:max(8px,env(safe-area-inset-bottom))}
+}
 @media (max-width:759px){
   html,body{overflow-x:hidden}
   #app{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:stretch;
@@ -139,7 +171,11 @@ hr{border:none;border-top:1px solid var(--line);margin:12px 0}
   .btn-grid{grid-template-columns:repeat(4,1fr)}
   .rbtn{width:46px;height:46px;font-size:18px}
   .robots{gap:10px}
-  .zoombtn{display:block;margin-left:auto;padding:11px 12px}
+  .zoombtn,.robotrow .fullbtn{display:block}
+  .zoombtn{margin-left:auto;padding:11px 12px}
+  .robotrow{flex-wrap:wrap;row-gap:8px}
+  .robotrow .fullbtn{padding:11px 12px}
+  .hdr .fullbtn{display:none}
   input,select{font-size:16px !important}
   .result-card{min-width:0;width:86%;padding:14px 12px}
   .rating{font-size:28px}
@@ -175,6 +211,7 @@ hr{border:none;border-top:1px solid var(--line);margin:12px 0}
     <div class="row spread hdr">
       <h1>Slide Bots<small>solo trainer</small></h1>
       <div class="row" style="gap:2px">
+        <button class="ghost fullbtn" title="Full-screen board (F)">Full screen</button>
         <button class="ghost" id="statsBtn">Stats</button>
         <button class="ghost" id="settingsBtn">Settings</button>
         <button class="ghost" id="devBtn" title="Developer tools / self-tests">Dev</button>
@@ -206,16 +243,19 @@ hr{border:none;border-top:1px solid var(--line);margin:12px 0}
       <div id="thinkLocked" class="small" hidden></div>
     </div>
 
-    <div class="card">
+    <div class="card ctl">
       <div class="btn-grid">
         <button id="undoBtn">Undo <kbd>Z</kbd></button>
         <button id="resetBtn">Reset <kbd>R</kbd></button>
         <button id="hintBtn">Hint <kbd>H</kbd></button>
         <button id="solBtn">Solution</button>
+        <button id="fullExit" title="Leave full screen (Esc)">Exit</button>
         <button id="nextBtn" class="primary wide">Next round <kbd>N</kbd></button>
       </div>
-      <div style="margin-top:8px" class="small muted">Your moves</div>
-      <div id="myMoves" class="chips"></div>
+      <div class="movesline">
+        <div style="margin-top:8px" class="small muted">Your moves</div>
+        <div id="myMoves" class="chips"></div>
+      </div>
     </div>
 
     <div class="card" id="hintBox" hidden></div>
@@ -239,6 +279,7 @@ hr{border:none;border-top:1px solid var(--line);margin:12px 0}
         <button class="right" data-dir="1" title="Right (→ / D)">→</button>
       </div>
       <button id="zoomBtn" class="zoombtn">Zoom in</button>
+      <button class="fullbtn">Full</button>
     </div>
 
     <div class="card">
@@ -251,10 +292,10 @@ hr{border:none;border-top:1px solid var(--line);margin:12px 0}
     </div>
 
     <div id="status"></div>
-    <div class="touchhelp">Tap a robot, then swipe anywhere on the board to slide it. Pinch with two fingers to zoom.</div>
+    <div class="touchhelp">Tap a robot, then swipe anywhere on the board to slide it. Pinch with two fingers to zoom. “Full” gives the board the whole screen.</div>
     <div class="keys">
       <kbd>1</kbd>–<kbd>5</kbd> select · <kbd>←↑→↓</kbd>/<kbd>WASD</kbd> move · <kbd>Z</kbd> undo · <kbd>R</kbd> reset ·
-      <kbd>H</kbd> hint · <kbd>N</kbd> next · <kbd>Space</kbd> start/pause · <kbd>P</kbd> preview stops
+      <kbd>H</kbd> hint · <kbd>N</kbd> next · <kbd>Space</kbd> start/pause · <kbd>P</kbd> preview stops · <kbd>F</kbd> full screen
     </div>
   </aside>
 </div>
@@ -784,7 +825,7 @@ globalThis.RRCore = (function () {
     board: null, deck: [], robots: [], start: [], targetIdx: -1, solution: null, code: '',
     phase: 'loading', history: [], selected: 0, hintLevel: 0, revealed: false, recorded: false,
     timer: { acc: 0, since: 0, running: false }, paused: false, think: null, replay: null, result: null,
-    gen: 0, anims: new Map(), trails: [], cell: 38, margin: 8, dpr: 1, raf: false, mobile: false, view: { k: 1, x: 0, y: 0 },
+    gen: 0, anims: new Map(), trails: [], cell: 38, margin: 8, dpr: 1, raf: false, mobile: false, full: false, cw: 640, ch: 640, view: { k: 1, x: 0, y: 0 },
   };
   const cv = $('board');
   const COARSE = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
@@ -1193,25 +1234,45 @@ globalThis.RRCore = (function () {
 
   // ---- zoom / pan (board is drawn through S.view; k = scale, x/y = offset in CSS px)
   const boardPx = () => S.cell * 16 + S.margin * 2;
+  // In full-screen portrait the floating controls cover the top and bottom, so allow panning past them.
+  const viewPads = () => (S.full && S.ch > S.cw) ? [70, 130] : [0, 0];
   function clampView() {
-    const V = S.view, W = boardPx();
+    const V = S.view, B = boardPx(), W = S.cw, H = S.ch, [pt, pb] = viewPads();
     V.k = Math.max(1, Math.min(3, V.k));
-    V.x = Math.min(0, Math.max(W - W * V.k, V.x)); V.y = Math.min(0, Math.max(W - W * V.k, V.y));
+    V.x = B * V.k <= W ? (W - B * V.k) / 2 : Math.min(0, Math.max(W - B * V.k, V.x));
+    V.y = B * V.k <= H ? (H - B * V.k) / 2 : Math.min(pt, Math.max(H - B * V.k - pb, V.y));
     $('zoomBtn').textContent = V.k > 1.02 ? 'Zoom out' : 'Zoom in';
   }
   function resetView() { S.view = { k: 1, x: 0, y: 0 }; clampView(); render(); }
   function zoomAt(k, p) {
-    const W = boardPx(), px = S.margin + ((p & 15) + 0.5) * S.cell, py = S.margin + ((p >> 4) + 0.5) * S.cell;
-    S.view = { k, x: W / 2 - px * k, y: W / 2 - py * k }; clampView(); render();
+    const px = S.margin + ((p & 15) + 0.5) * S.cell, py = S.margin + ((p >> 4) + 0.5) * S.cell;
+    S.view = { k, x: S.cw / 2 - px * k, y: S.ch / 2 - py * k }; clampView(); render();
   }
   function ensureVisible(p) {   // when zoomed in, pan just enough to keep a cell on screen
     const V = S.view; if (V.k <= 1.02) return;
-    const W = boardPx(), pad = S.cell * V.k * 0.9;
+    const pad = S.cell * V.k * 0.9, [pt, pb] = viewPads();
     const sx = V.x + (S.margin + ((p & 15) + 0.5) * S.cell) * V.k, sy = V.y + (S.margin + ((p >> 4) + 0.5) * S.cell) * V.k;
-    if (sx < pad) V.x += pad - sx; else if (sx > W - pad) V.x -= sx - (W - pad);
-    if (sy < pad) V.y += pad - sy; else if (sy > W - pad) V.y -= sy - (W - pad);
+    if (sx < pad) V.x += pad - sx; else if (sx > S.cw - pad) V.x -= sx - (S.cw - pad);
+    if (sy < pt + pad) V.y += pt + pad - sy; else if (sy > S.ch - pb - pad) V.y -= sy - (S.ch - pb - pad);
     clampView();
   }
+  let nativeFull = false;
+  function setFull(on) {
+    if (S.full === on) return;
+    S.full = on; document.body.classList.toggle('full', on);
+    const de = document.documentElement;   // also hide the browser's own bars where the browser allows it (not on iPhone)
+    try {
+      if (on && de.requestFullscreen) de.requestFullscreen().catch(() => {});
+      else if (!on && document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    } catch (e) { /* unsupported */ }
+    if (on) window.scrollTo(0, 0);
+    layout(); updateHUD();
+  }
+  document.addEventListener('fullscreenchange', () => {
+    if (document.fullscreenElement) nativeFull = true;
+    else if (nativeFull) { nativeFull = false; setFull(false); }
+    layout();
+  });
 
   const ease = t => 1 - Math.pow(1 - t, 3);
   function render() { if (!S.raf) { S.raf = true; requestAnimationFrame(draw); } }
@@ -1222,7 +1283,7 @@ globalThis.RRCore = (function () {
     const tnow = performance.now();
     let again = false;
     ctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0);
-    ctx.clearRect(0, 0, W, W);
+    ctx.clearRect(0, 0, S.cw, S.ch);
     const V = S.view, small = cs < 30;   // phone-sized cells: draw robots and targets larger
     ctx.setTransform(S.dpr * V.k, 0, 0, S.dpr * V.k, S.dpr * V.x, S.dpr * V.y);
     ctx.fillStyle = '#e4dccb'; roundRect(ctx, 0, 0, W, W, S.mobile ? 0 : 12); ctx.fill();
@@ -1318,17 +1379,23 @@ globalThis.RRCore = (function () {
   function layout() {
     const availH = window.innerHeight - 32, availW = window.innerWidth - 32 - 330 - 20;
     const mobile = window.innerWidth < 760;   // stacked layout: board takes the full width
-    const size = mobile ? Math.max(240, Math.min(window.innerWidth, window.innerHeight - 16))   // edge to edge
-                        : Math.max(320, Math.min(640, availH, availW));
-    S.mobile = mobile;
-    if (mobile) { S.margin = 3; S.cell = (size - 6) / 16; }
-    else { S.cell = Math.floor((size - 10) / 16); S.margin = Math.floor((size - S.cell * 16) / 2); }
+    let w, h;
+    if (S.full) {   // canvas = whole window; the board is fitted to the shorter side and centred
+      w = window.innerWidth; h = window.innerHeight;
+      S.mobile = true; S.margin = 3; S.cell = (Math.min(w, h) - 6) / 16;
+    } else {
+      const size = mobile ? Math.max(240, Math.min(window.innerWidth, window.innerHeight - 16))   // edge to edge
+                          : Math.max(320, Math.min(640, availH, availW));
+      S.mobile = mobile;
+      if (mobile) { S.margin = 3; S.cell = (size - 6) / 16; }
+      else { S.cell = Math.floor((size - 10) / 16); S.margin = Math.floor((size - S.cell * 16) / 2); }
+      w = h = S.cell * 16 + S.margin * 2;
+    }
+    S.cw = w; S.ch = h; S.dpr = window.devicePixelRatio || 1;
+    cv.style.width = w + 'px'; cv.style.height = h + 'px';
+    cv.width = Math.round(w * S.dpr); cv.height = Math.round(h * S.dpr);
+    $('boardWrap').style.width = S.full ? '' : w + 'px';
     S.view = { k: 1, x: 0, y: 0 }; clampView();
-    const px = S.cell * 16 + S.margin * 2;
-    S.dpr = window.devicePixelRatio || 1;
-    cv.style.width = cv.style.height = px + 'px';
-    cv.width = cv.height = Math.round(px * S.dpr);
-    $('boardWrap').style.width = px + 'px';
     render();
   }
 
@@ -1360,12 +1427,12 @@ globalThis.RRCore = (function () {
     const pt = boardPt(e), cell = cellOf(pt);
     ptr = { x: e.clientX, y: e.clientY, cell, hitRobot: false };
     if (S.phase === 'replay') return;
-    let hit = cell >= 0 ? S.robots.indexOf(cell) : -1;
-    if (hit < 0 && S.cell * S.view.k < 30) {   // small cells: a touch near a robot counts as touching it
+    const hit = cell >= 0 ? S.robots.indexOf(cell) : -1;
+    if (hit < 0 && S.cell * S.view.k < 30) {   // small cells: a tap (not a swipe) near a robot counts as tapping it
       let best = 0.95;
       S.robots.forEach((r, i) => {
         const d = Math.hypot(pt.x - (S.margin + ((r & 15) + 0.5) * S.cell), pt.y - (S.margin + ((r >> 4) + 0.5) * S.cell)) / S.cell;
-        if (d < best) { best = d; hit = i; }
+        if (d < best) { best = d; ptr.near = i; }
       });
     }
     if (hit >= 0) { S.selected = hit; ptr.hitRobot = true; updateHUD(); render(); }
@@ -1392,6 +1459,7 @@ globalThis.RRCore = (function () {
       return;
     }
     if (p.hitRobot || p.cell < 0 || S.phase === 'replay') return;
+    if (p.near != null) { S.selected = p.near; updateHUD(); render(); return; }
     const r = S.robots[S.selected]; if (r == null) return;
     const x = p.cell & 15, y = p.cell >> 4, rx = r & 15, ry = r >> 4;
     if (x === rx) move(S.selected, y < ry ? 0 : 2);
@@ -1399,6 +1467,8 @@ globalThis.RRCore = (function () {
   };
   cv.addEventListener('pointerup', e => pointerEnd(e, false));
   cv.addEventListener('pointercancel', e => pointerEnd(e, true));
+  document.querySelectorAll('.fullbtn').forEach(b => b.addEventListener('click', () => setFull(true)));
+  $('fullExit').onclick = () => setFull(false);
   $('zoomBtn').onclick = () => { if (S.view.k > 1.02) resetView(); else zoomAt(1.8, S.robots[S.selected] == null ? 136 : S.robots[S.selected]); };
 
   const KEY_DIR = { arrowup: 0, arrowright: 1, arrowdown: 2, arrowleft: 3, w: 0, d: 1, s: 2, a: 3 };
@@ -1425,6 +1495,8 @@ globalThis.RRCore = (function () {
     else if (k === 'h') hint();
     else if (k === 'p') { S.settings.preview = !S.settings.preview; saveSettings(); flash('Preview stops ' + (S.settings.preview ? 'on' : 'off')); render(); }
     else if (k === ' ') { e.preventDefault(); togglePause(); }
+    else if (k === 'f') setFull(!S.full);
+    else if (k === 'escape' && S.full) setFull(false);
     else if (k === 'enter' && S.phase === 'solved') nextRound();
     else return;
     if (document.activeElement && document.activeElement.tagName === 'BUTTON') document.activeElement.blur();
