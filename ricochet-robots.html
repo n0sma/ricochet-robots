@@ -265,6 +265,14 @@ hr{border:none;border-top:1px solid var(--line);margin:12px 0}
       <option value="0">Re-randomize robots</option>
     </select>
   </div>
+  <div class="field"><span>New board</span>
+    <select id="setBoardEvery">
+      <option value="1">Every round</option>
+      <option value="5">Every 5 rounds</option>
+      <option value="17">Every 17 rounds (one full deck)</option>
+      <option value="0">Only when I press “New board”</option>
+    </select>
+  </div>
   <label><input type="checkbox" id="setSilver"> Fifth (silver) robot</label>
   <label><input type="checkbox" id="setPreview"> Preview stops for the selected robot</label>
   <label><input type="checkbox" id="setThink"> “Think first” mode, countdown
@@ -287,7 +295,7 @@ hr{border:none;border-top:1px solid var(--line);margin:12px 0}
 
 <dialog id="loadDialog">
   <h2>Load a puzzle</h2>
-  <div class="small muted">Paste a puzzle code (board seed + robots + target), e.g. <code>k3f9qz-1a2b3c4d7</code></div>
+  <div class="small muted">Paste a puzzle code (board seed + robots + target), e.g. <code>k3f9qz.1a2b3c4d7</code></div>
   <div class="row" style="margin-top:10px"><input type="text" id="loadInput" style="flex:1" spellcheck="false" autocomplete="off"></div>
   <div id="loadErr" class="small" style="color:var(--bad);min-height:18px;margin-top:4px"></div>
   <div class="actions"><button id="loadCancel">Cancel</button><button id="loadGo" class="primary">Load</button></div>
@@ -348,8 +356,35 @@ globalThis.RRCore = (function () {
   // Rotate a canonical (top-left) coordinate q quarter-turns clockwise around the board centre.
   function rotXY(x, y, q) { for (let i = 0; i < q; i++) { const nx = 15 - y; y = x; x = nx; } return [x, y]; }
 
-  function buildBoard(seed) {
-    seed = seed >>> 0;
+  // Procedural quadrant (generation 2 boards): random L-corners and edge stubs under the same rules
+  // as the hand-made designs. Corners stay off the outer edge, the quadrant seams and the centre block,
+  // never touch each other, and the two stubs never touch a corner's walls.
+  function genQuadrant(rng, withRainbow) {
+    for (;;) {
+      const need = withRainbow ? 5 : 4, cells = [];
+      for (let tries = 0; cells.length < need && tries < 300; tries++) {
+        const x = 1 + Math.floor(rng() * 6), y = 1 + Math.floor(rng() * 6);
+        if (x === 6 && y === 6) continue;
+        if (cells.some(c => Math.max(Math.abs(c[0] - x), Math.abs(c[1] - y)) < 2)) continue;
+        cells.push([x, y]);
+      }
+      if (cells.length < need) continue;
+      const orient = shuffle(['NE', 'SE', 'SW', 'NW'], rng);
+      const L = cells.map((c, i) => [c[0], c[1], i < 4 ? orient[i] : orient[Math.floor(rng() * 4)]]);
+      const top = [], left = [];
+      for (let k = 1; k <= 6; k++) {
+        if (!cells.some(c => c[1] === 1 && (c[0] === k || c[0] === k + 1))) top.push(k);
+        if (!cells.some(c => c[0] === 1 && (c[1] === k || c[1] === k + 1))) left.push(k);
+      }
+      if (!top.length || !left.length) continue;
+      return { L, stubs: [[top[Math.floor(rng() * top.length)], 0, 'E'], [0, left[Math.floor(rng() * left.length)], 'S']] };
+    }
+  }
+
+  // gen 2 (default): every quadrant is generated from the seed, so each seed is a different board.
+  // gen 1: the four hand-made quadrants, shuffled (kept so older puzzle codes still load).
+  function buildBoard(seed, gen) {
+    seed = seed >>> 0; gen = gen === 1 ? 1 : 2;
     const rng = mulberry32(seed);
     const walls = new Uint8Array(256);
     const setWall = (p, d) => { walls[p] |= BIT[d]; const q = neighbor(p, d); if (q >= 0) walls[q] |= BIT[(d + 2) & 3]; };
@@ -358,7 +393,7 @@ globalThis.RRCore = (function () {
     const rainbowQ = Math.floor(rng() * 4);
     const targets = [];
     for (let q = 0; q < 4; q++) {                     // q: 0=TL 1=TR 2=BR 3=BL (q clockwise turns)
-      const design = QUADS[order[q]];
+      const design = gen === 1 ? QUADS[order[q]] : genQuadrant(rng, q === rainbowQ);
       const colors = shuffle([0, 1, 2, 3], rng);
       const place = (x, y, corner, color, shape) => {
         const [rx, ry] = rotXY(x, y, q); const p = ry * 16 + rx;
@@ -371,7 +406,7 @@ globalThis.RRCore = (function () {
     }
     for (const p of CENTER) for (let d = 0; d < 4; d++) setWall(p, d);
     targets.sort((a, b) => a.color - b.color || a.shape - b.shape);
-    return { seed, walls, targets, stops: computeStops(walls), order, rainbowQ };
+    return { seed, gen, walls, targets, stops: computeStops(walls), order, rainbowQ };
   }
 
   // Wall-only slide stops: stops[cell*4+dir]
@@ -536,21 +571,22 @@ globalThis.RRCore = (function () {
     return out;
   }
 
-  // Puzzle code: <board seed base36>-<robot cells hex, 2 chars each><target index base36>
-  function encodeCode(seed, robots, t) {
-    return (seed >>> 0).toString(36) + '-' + robots.map(p => p.toString(16).padStart(2, '0')).join('') + t.toString(36);
+  // Puzzle code: <board seed base36><sep><robot cells hex, 2 chars each><target index base36>
+  // sep "." = generated boards (gen 2), "-" = the original hand-made boards (gen 1)
+  function encodeCode(seed, robots, t, gen) {
+    return (seed >>> 0).toString(36) + (gen === 1 ? '-' : '.') + robots.map(p => p.toString(16).padStart(2, '0')).join('') + t.toString(36);
   }
   function decodeCode(str) {
     const s = String(str || '').trim().toLowerCase();
-    const m = /^([0-9a-z]{1,7})-((?:[0-9a-f]{2}){4,5})([0-9a-g])$/.exec(s);
+    const m = /^([0-9a-z]{1,7})([-.])((?:[0-9a-f]{2}){4,5})([0-9a-g])$/.exec(s);
     if (!m) return null;
     const seed = parseInt(m[1], 36);
     if (!(seed >= 0 && seed <= 0xffffffff)) return null;
-    const robots = []; for (let i = 0; i < m[2].length; i += 2) robots.push(parseInt(m[2].slice(i, i + 2), 16));
-    const target = parseInt(m[3], 36);
+    const robots = []; for (let i = 0; i < m[3].length; i += 2) robots.push(parseInt(m[3].slice(i, i + 2), 16));
+    const target = parseInt(m[4], 36);
     if (!(target >= 0 && target <= 16)) return null;
     if (new Set(robots).size !== robots.length || robots.some(isCenter)) return null;
-    return { seed, robots, target };
+    return { seed, robots, target, gen: m[2] === '-' ? 1 : 2 };
   }
 
   // ---------------- self-tests ----------------
@@ -563,9 +599,13 @@ globalThis.RRCore = (function () {
     const rng = mulberry32(20261116);
     const rseed = () => (rng() * 4294967296) >>> 0;
 
-    section('Board structure: 300 random boards (walls, centre, targets, L-corners)', () => {
-      for (let k = 0; k < 300; k++) {
-        const seed = rseed(); const b = buildBoard(seed); const w = b.walls;
+    section('Board structure: 600 random boards, generated + hand-made (walls, centre, targets, L-corners)', () => {
+      for (let k = 0; k < 600; k++) {
+        const seed = rseed(); const gen = k % 3 === 0 ? 1 : 2; const b = buildBoard(seed, gen); const w = b.walls;
+        const perQ = [0, 0, 0, 0]; for (const t of b.targets) perQ[((t.pos >> 4) > 7 ? 2 : 0) + ((t.pos & 15) > 7 ? 1 : 0)]++;
+        check(perQ.slice().sort().join() === '4,4,4,5', 'targets per quadrant ' + perQ + ', seed ' + seed);
+        let wallCount = 0; for (let p = 0; p < 256; p++) { if ((w[p] & 2) && (p & 15) < 15) wallCount++; if ((w[p] & 4) && (p >> 4) < 15) wallCount++; }
+        check(wallCount === 17 * 2 + 8 + 12, 'unexpected wall count ' + wallCount + ' (walls overlap?), seed ' + seed);
         let sym = true, outer = true;
         for (let p = 0; p < 256; p++) for (let d = 0; d < 4; d++) {
           const q = neighbor(p, d);
@@ -590,9 +630,15 @@ globalThis.RRCore = (function () {
           const a = b.targets[i].pos, c = b.targets[j].pos;
           check(Math.max(Math.abs((a & 15) - (c & 15)), Math.abs((a >> 4) - (c >> 4))) >= 2, 'L-corners touch: ' + a + '/' + c + ', seed ' + seed);
         }
-        const b2 = buildBoard(seed);
+        const b2 = buildBoard(seed, gen);
         check(b2.walls.every((v, i) => v === w[i]) && b2.targets.every((t, i) => t.pos === b.targets[i].pos), 'board not deterministic for seed ' + seed);
       }
+    });
+
+    section('Board variety: 3000 seeds give 3000 different wall layouts', () => {
+      const seen = new Set();
+      for (let k = 0; k < 3000; k++) seen.add(Array.from(buildBoard(rseed()).walls).join(''));
+      check(seen.size === 3000, 'only ' + seen.size + ' distinct boards out of 3000');
     });
 
     section('Movement fuzz: 80 boards × 400 random moves (walls, robots, centre)', () => {
@@ -680,8 +726,8 @@ globalThis.RRCore = (function () {
     section('Seed codes round-trip', () => {
       for (let k = 0; k < 200; k++) {
         const b = buildBoard(rseed()); const n = k % 2 ? 5 : 4; const robots = randomRobots(b, n, rng); const t = Math.floor(rng() * 17);
-        const code = encodeCode(b.seed, robots, t); const d = decodeCode(code);
-        check(d && d.seed === b.seed && d.target === t && d.robots.join() === robots.join(), 'code round-trip failed: ' + code);
+        const g = k % 3 ? 2 : 1; const code = encodeCode(b.seed, robots, t, g); const d = decodeCode(code);
+        check(d && d.gen === g && d.seed === b.seed && d.target === t && d.robots.join() === robots.join(), 'code round-trip failed: ' + code);
       }
       for (const bad of ['', 'abc', 'zzzzzzzz-11223344', '1-11223377h', '1-1122337', '1-7777777700', '1-11111111' + '2'])
         check(decodeCode(bad) === null, 'invalid code accepted: "' + bad + '"');
@@ -719,7 +765,7 @@ globalThis.RRCore = (function () {
     get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
     set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* storage unavailable */ } },
   };
-  const DEFAULT_SETTINGS = { silver: false, persist: true, difficulty: 'any', think: false, thinkSecs: 60, preview: false };
+  const DEFAULT_SETTINGS = { silver: false, persist: true, difficulty: 'any', think: false, thinkSecs: 60, preview: false, boardEvery: 5 };
   const DEFAULT_STATS = { played: 0, solved: 0, optimal: 0, sumOver: 0, sumTime: 0, streak: 0, bestStreak: 0, predictions: 0, predCorrect: 0, predAchieved: 0 };
 
   const S = {
@@ -790,9 +836,9 @@ globalThis.RRCore = (function () {
   function timerStop() { if (S.timer.running) { S.timer.acc += performance.now() - S.timer.since; S.timer.running = false; } }
 
   // ---------------- rounds ----------------
-  function newBoard(seed) {
-    S.board = C.buildBoard(seed == null ? randU32() : seed);
-    S.deck = [];
+  function newBoard(seed, gen) {
+    S.board = C.buildBoard(seed == null ? randU32() : seed, gen);
+    S.deck = []; S.roundsOnBoard = 0;
     $('boardSeedLbl').textContent = S.board.seed.toString(36);
   }
   function drawTarget(tried) {
@@ -839,7 +885,7 @@ globalThis.RRCore = (function () {
     const n = dec.robots.length;
     if (S.settings.silver !== (n === 5)) { S.settings.silver = n === 5; saveSettings(); }
     const gen = enterLoading('Solving loaded puzzle…');
-    newBoard(dec.seed);
+    newBoard(dec.seed, dec.gen);
     S.robots = dec.robots.slice();
     const tg = S.board.targets[dec.target];
     const on = tg.color === 4 ? dec.robots.indexOf(tg.pos) >= 0 : dec.robots[tg.color] === tg.pos;
@@ -857,7 +903,7 @@ globalThis.RRCore = (function () {
     S.history = []; S.hintLevel = 0; S.revealed = false; S.recorded = false; S.result = null; S.replay = null;
     S.anims.clear(); S.trails = []; S.paused = false;
     const tg = target(); S.selected = tg.color < 4 ? tg.color : 0;
-    S.code = C.encodeCode(S.board.seed, S.start, t);
+    S.code = C.encodeCode(S.board.seed, S.start, t, S.board.gen); S.roundsOnBoard++;
     timerReset(); timerStart(); setLoading(null);
     if (S.settings.think) {
       const ms = Math.max(5, Math.min(600, +S.settings.thinkSecs || 60)) * 1000;
@@ -1004,8 +1050,9 @@ globalThis.RRCore = (function () {
 
   function nextRound() {
     if (S.phase !== 'loading' && S.solution && !S.recorded && (S.history.length > 0 || S.hintLevel > 0 || S.revealed)) recordStats('gaveup');
-    if (S.phase === 'replay' || S.phase === 'solved') { /* robots remain as currently shown */ }
-    startNewRound();
+    const every = +S.settings.boardEvery || 0;
+    if (every && S.roundsOnBoard >= every) { newBoard(); startNewRound({ randomize: true }); }   // fresh board, fresh robot positions
+    else startNewRound();
   }
 
   function togglePause() {
@@ -1339,12 +1386,13 @@ globalThis.RRCore = (function () {
   // settings
   function syncSettingsForm() {
     const s = S.settings;
-    $('setDifficulty').value = s.difficulty; $('setPersist').value = s.persist ? '1' : '0';
+    $('setBoardEvery').value = String(s.boardEvery); $('setDifficulty').value = s.difficulty; $('setPersist').value = s.persist ? '1' : '0';
     $('setSilver').checked = s.silver; $('setPreview').checked = s.preview; $('setThink').checked = s.think; $('setThinkSecs').value = s.thinkSecs;
   }
   $('settingsBtn').onclick = () => { syncSettingsForm(); $('settingsDialog').showModal(); };
   $('settingsClose').onclick = () => $('settingsDialog').close();
   $('setDifficulty').onchange = e => { S.settings.difficulty = e.target.value; saveSettings(); updateHUD(); };
+  $('setBoardEvery').onchange = e => { S.settings.boardEvery = +e.target.value; saveSettings(); };
   $('setPersist').onchange = e => { S.settings.persist = e.target.value === '1'; saveSettings(); };
   $('setPreview').onchange = e => { S.settings.preview = e.target.checked; saveSettings(); render(); };
   $('setThink').onchange = e => { S.settings.think = e.target.checked; saveSettings(); };
